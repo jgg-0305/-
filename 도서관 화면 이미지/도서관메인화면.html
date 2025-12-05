@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>동의대 도서관</title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        /* --- 기본 초기화 및 변수 설정 --- */
+        :root {
+            --primary-blue: #2552e3; /* 메인 파란색 */
+            --bg-gray: #f8f9fa;      /* 배경 회색 */
+            --text-dark: #333;       /* 기본 텍스트 */
+            --text-light: #666;      /* 보조 텍스트 */
+            --accent-yellow: #f5a623; /* 포인트 노란색 */
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Noto Sans KR', sans-serif; background-color: var(--bg-gray); color: var(--text-dark); }
+        a { text-decoration: none; color: inherit; }
+        ul { list-style: none; }
+        
+        /* 공통 레이아웃 */
+        .container { max-width: 1200px; margin: 0 auto; padding: 0 20px; }
+
+        /* --- 1. 헤더 --- */
+        header { background: #fff; padding: 15px 0; border-bottom: 1px solid #ddd; }
+        .header-inner { display: flex; justify-content: space-between; align-items: center; }
+        .logo { font-size: 24px; font-weight: 700; color: var(--primary-blue); display: flex; align-items: center; gap: 10px; }
+        .nav ul { display: flex; gap: 30px; font-weight: 500; }
+        .login-btn { background: var(--primary-blue); color: #fff; padding: 8px 20px; border-radius: 5px; font-weight: 500; }
+
+        /* --- 2. 히어로 섹션 (배너) --- */
+        .hero { background: linear-gradient(135deg, #2552e3 0%, #1a3dbf 100%); color: #fff; padding: 60px 0; position: relative; overflow: hidden; }
+        .hero-content { position: relative; z-index: 2; max-width: 600px; }
+        .hero h1 { font-size: 36px; margin-bottom: 10px; }
+        .hero p { font-size: 16px; margin-bottom: 30px; opacity: 0.9; }
+        
+        /* 검색창 스타일 */
+        .search-box { display: flex; background: #fff; border-radius: 8px; overflow: hidden; padding: 5px; }
+        .search-box input { flex: 1; border: none; padding: 10px 15px; font-size: 16px; outline: none; }
+        .search-box button { background: var(--accent-yellow); border: none; width: 50px; cursor: pointer; color: #fff; border-radius: 4px; }
+
+        /* 히어로 배경 이미지 */
+        .hero-bg-img {
+            position: absolute; right: 0; top: 0; height: 100%; width: 60%;
+            background: url('http://googleusercontent.com/image_collection/image_retrieval/1310969322594629941_0') center/cover;
+            mask-image: linear-gradient(to right, rgba(0,0,0,0) 0%, rgba(0,0,0,1) 50%);
+            -webkit-mask-image: linear-gradient(to right, rgba(0,0,0,0) 0%, rgba(0,0,0,1) 50%);
+            opacity: 0.9;
+        }
+
+        /* --- 3. 빠른 서비스 --- */
+        .quick-service { padding: 50px 0; text-align: center; }
+        .section-title { font-size: 24px; font-weight: 700; margin-bottom: 30px; }
+        .service-grid { display: flex; justify-content: space-between; gap: 20px; }
+        .service-card { background: #fff; padding: 30px; border-radius: 10px; flex: 1; box-shadow: 0 4px 15px rgba(0,0,0,0.05); transition: 0.3s; cursor: pointer; }
+        .service-card:hover { transform: translateY(-5px); }
+        .icon-box { width: 60px; height: 60px; border-radius: 50%; margin: 0 auto 15px; display: flex; align-items: center; justify-content: center; font-size: 24px; color: #fff; }
+        .service-card h3 { font-size: 16px; margin-bottom: 5px; }
+        .service-card span { font-size: 13px; color: var(--text-light); }
+
+        /* 아이콘 색상 설정 */
+        .icon-purchase { background: #2552e3; } /* 희망자료 구입 (파란색 유지) */
+        .icon-seat { background: #f5a623; }
+        .icon-loan { background: #10ac84; }
+        .icon-exchange { background: #9b59b6; }
+
+        /* --- 4. 정보 대시보드 --- */
+        .dashboard { padding-bottom: 50px; }
+        .dashboard-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; }
+        .dash-card { background: #fff; padding: 25px; border-radius: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
+        .dash-title { font-size: 18px; font-weight: 700; margin-bottom: 20px; border-bottom: 1px solid #eee; padding-bottom: 10px; }
+
+        .info-list li { display: flex; justify-content: space-between; margin-bottom: 12px; font-size: 14px; color: var(--text-dark); }
+        .info-list .value { font-weight: 700; }
+        .color-blue { color: var(--primary-blue); }
+        .color-red { color: #e74c3c; }
+        .color-green { color: #10ac84; }
+
+        .status-badge { display: inline-block; width: 8px; height: 8px; background: #10ac84; border-radius: 50%; margin-right: 5px; }
+        .more-link { display: block; margin-top: 15px; font-size: 13px; color: var(--primary-blue); font-weight: 500; }
+
+        /* --- 5. 인기 도서 --- */
+        .popular-books { padding-bottom: 80px; text-align: center; }
+        .book-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 20px; }
+        .book-card { background: #fff; padding: 15px; border-radius: 10px; text-align: left; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
+        .book-img { width: 100%; height: 180px; background: #ddd; margin-bottom: 15px; border-radius: 5px; overflow: hidden; }
+        .book-img img { width: 100%; height: 100%; object-fit: cover; }
+        .book-title { font-size: 15px; font-weight: 700; margin-bottom: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .book-author { font-size: 12px; color: var(--text-light); margin-bottom: 10px; }
+        .badge { font-size: 11px; padding: 3px 8px; border-radius: 12px; }
+        .badge-avail { background: #e6fcf5; color: #0ca678; }
+        .badge-out { background: #fff9db; color: #f59f00; }
+
+        /* --- 6. 푸터 --- */
+        footer { background: #0f172a; color: #a0aec0; padding-top: 60px; padding-bottom: 30px; font-size: 14px; }
+        .footer-grid { display: grid; grid-template-columns: 1.5fr 1fr 1fr 1.2fr; gap: 40px; margin-bottom: 50px; }
+        
+        footer h4 { color: #fff; font-size: 16px; font-weight: 700; margin-bottom: 20px; }
+        footer ul li { margin-bottom: 12px; }
+        footer ul li a { color: #a0aec0; transition: 0.3s; }
+        footer ul li a:hover { color: #fff; text-decoration: underline; }
+
+        .footer-brand .f-logo { color: #fff; font-size: 20px; font-weight: 700; display: inline-block; margin-bottom: 15px; }
+        .footer-brand p { line-height: 1.6; margin-bottom: 20px; font-size: 13px; }
+        .social-icons a { display: inline-flex; width: 32px; height: 32px; background: rgba(255,255,255,0.1); color: #fff; border-radius: 50%; align-items: center; justify-content: center; margin-right: 10px; transition: 0.3s; }
+        .social-icons a:hover { background: var(--primary-blue); }
+
+        .contact-info li { display: flex; align-items: start; gap: 10px; margin-bottom: 15px; }
+        .contact-info i { margin-top: 4px; color: #fff; }
+
+        .copyright { border-top: 1px solid rgba(255,255,255,0.1); padding-top: 25px; text-align: center; font-size: 13px; color: #718096; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="container header-inner">
+            <a href="#" class="logo">
+                <i class="fa-solid fa-book-open"></i> 동의대 도서관
+            </a>
+            <nav class="nav">
+                <ul>
+                    <li><a href="#">홈</a></li>
+                    <li><a href="#">도서검색</a></li>
+                    <li><a href="#">전자자료</a></li>
+                    <li><a href="#">서비스</a></li>
+                    <li><a href="#">공지사항</a></li>
+                </ul>
+            </nav>
+            <a href="#" class="login-btn"><i class="fa-solid fa-user"></i> 로그인</a>
+        </div>
+    </header>
+
+    <section class="hero">
+        <div class="hero-bg-img"></div>
+        <div class="container">
+            <div class="hero-content">
+                <h1>지식의 바다, 동의대 도서관</h1>
+                <p>학습과 연구를 위한 최적의 공간에서 무한한 가능성을 발견하세요.</p>
+                <div class="search-box">
+                    <input type="text" placeholder="Search Keyword">
+                    <button><i class="fa-solid fa-magnifying-glass"></i></button>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="quick-service container">
+        <h2 class="section-title">빠른 서비스</h2>
+        <div class="service-grid">
+            
+            <div class="service-card">
+                <div class="icon-box icon-purchase"><i class="fa-solid fa-cart-plus"></i></div>
+                <h3>희망자료 구입</h3>
+                <span>도서관에 없는 자료 신청</span>
+            </div>
+
+            <div class="service-card">
+                <div class="icon-box icon-seat"><i class="fa-solid fa-chair"></i></div>
+                <h3>좌석예약</h3>
+                <span>열람실 좌석 예약</span>
+            </div>
+
+            <div class="service-card">
+                <div class="icon-box icon-loan"><i class="fa-solid fa-book-open-reader"></i></div>
+                <h3>대출/연장/예약</h3>
+                <span>대출 현황 및 기간 연장</span>
+            </div>
+            
+            <div class="service-card">
+                <div class="icon-box icon-exchange"><i class="fa-solid fa-arrow-right-arrow-left"></i></div>
+                <h3>상호대차</h3>
+                <span>타 도서관 자료 신청</span>
+            </div>
+        </div>
+    </section>
+
+    <section class="dashboard container">
+        <div class="dashboard-grid">
+            <div class="dash-card">
+                <div class="dash-title">도서관 현황</div>
+                <ul class="info-list">
+                    <li><span>총 장서 수</span> <span class="value color-blue">1,245,678권</span></li>
+                    <li><span>전자책</span> <span class="value color-blue">89,432권</span></li>
+                    <li><span>현재 이용자</span> <span class="value color-green">342명</span></li>
+                    <li><span>좌석 현황</span> <span class="value color-red">1,280/1,500석</span></li>
+                </ul>
+            </div>
+            <div class="dash-card">
+                <div class="dash-title">운영시간</div>
+                <ul class="info-list">
+                    <li><span>평일</span> <span>09:00 - 22:00</span></li>
+                    <li><span>토요일</span> <span>09:00 - 18:00</span></li>
+                    <li><span>일요일/공휴일</span> <span>13:00 - 18:00</span></li>
+                </ul>
+                <div style="margin-top: 15px; color: #10ac84; font-weight: 700; font-size: 14px;">
+                    <span class="status-badge"></span> 현재 운영중
+                </div>
+            </div>
+            <div class="dash-card">
+                <div class="dash-title">최신 공지사항</div>
+                <ul class="info-list">
+                    <li><span>도서관 시스템 점검 안내</span> <span style="color:#888">01.15</span></li>
+                    <li><span>신간도서 입고 안내</span> <span style="color:#888">01.12</span></li>
+                    <li><span>스터디룸 예약 시스템 개선</span> <span style="color:#888">01.10</span></li>
+                </ul>
+                <a href="#" class="more-link">더보기 →</a>
+            </div>
+        </div>
+    </section>
+
+    <section class="popular-books container">
+        <h2 class="section-title">인기 도서</h2>
+        <div class="book-grid">
+            <div class="book-card">
+                <div class="book-img">
+                    <img src="https://contents.kyobobook.co.kr/sih/fit-in/458x0/pdt/9791196752521.jpg" 
+                    alt="데이터 사이언스 입문">
+                </div>
+                <div class="book-title">데이터 사이언스 입문</div>
+                <div class="book-author">김진,최정아 저자</div>
+                <span class="badge badge-avail">대출가능</span>
+            </div>
+            <div class="book-card">
+                <div class="book-img">
+                    <img src="https://cdn-prod.hanbit.co.kr/books/B4416755821_l.jpg" alt="파이썬 프로그래밍">
+                </div>
+                <div class="book-title">파이썬 프로그래밍</div>
+                <div class="book-author">최성철 저자</div>
+                <span class="badge badge-out">대출중</span>
+            </div>
+            <div class="book-card">
+                <div class="book-img">
+                    <img src="https://contents.kyobobook.co.kr/sih/fit-in/458x0/pdt/9788955018370.jpg" alt="경영학 원론">
+                </div>
+                <div class="book-title">경영학 원론</div>
+                <div class="book-author">김태웅,장영봉,이우현 저자(글)</div>
+                <span class="badge badge-avail">대출가능</span>
+            </div>
+             <div class="book-card">
+                <div class="book-img">
+                    <img src="https://image.aladin.co.kr/product/19929/66/cover500/8999717607_1.jpg" alt="심리학의 이해">
+                </div>
+                <div class="book-title">심리학의 이해</div>
+                <div class="book-author">윤가현 저자</div>
+                <span class="badge badge-avail">대출가능</span>
+            </div>
+             <div class="book-card">
+                <div class="book-img">
+                    <img src="https://contents.kyobobook.co.kr/sih/fit-in/400x0/pdt/9791191679076.jpg" alt="공학수학">
+                </div>
+                <div class="book-title">공학수학</div>
+                <div class="book-author">Dennis G, 저자(글) 고형준</div>
+                <span class="badge badge-out">대출중</span>
+            </div>
+        </div>
+    </section>
+
+    <footer>
+        <div class="container">
+            <div class="footer-grid">
+                <div class="footer-brand">
+                    <span class="f-logo"><i class="fa-solid fa-book-open"></i> 동의대 도서관</span>
+                    <p>지식과 학습의 중심, 동의대학교 도서관입니다.<br>여러분의 꿈을 응원합니다.</p>
+                    <div class="social-icons">
+                        <a href="#"><i class="fa-brands fa-facebook-f"></i></a>
+                        <a href="#"><i class="fa-brands fa-instagram"></i></a>
+                        <a href="#"><i class="fa-brands fa-youtube"></i></a>
+                    </div>
+                </div>
+
+                <div>
+                    <h4>서비스</h4>
+                    <ul>
+                        <li><a href="#">희망자료 구입</a></li> <li><a href="#">좌석예약</a></li>
+                        <li><a href="#">대출/연장/예약</a></li>
+                        <li><a href="#">상호대차</a></li>
+                    </ul>
+                </div>
+
+                <div>
+                    <h4>이용안내</h4>
+                    <ul>
+                        <li><a href="#">이용시간</a></li>
+                        <li><a href="#">대출안내</a></li>
+                        <li><a href="#">시설안내</a></li>
+                        <li><a href="#">FAQ</a></li>
+                    </ul>
+                </div>
+
+                <div>
+                    <h4>연락처</h4>
+                    <ul class="contact-info">
+                        <li>
+                            <i class="fa-solid fa-location-dot"></i>
+                            <span>부산광역시 부산진구 엄광로 176</span>
+                        </li>
+                        <li>
+                            <i class="fa-solid fa-phone"></i>
+                            <span>051-890-1234</span>
+                        </li>
+                        <li>
+                            <i class="fa-solid fa-envelope"></i>
+                            <span>library@deu.ac.kr</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="copyright">
+                <p>© 2024 Dong-eui University Library. All rights reserved.</p>
+            </div>
+        </div>
+    </footer>
+
+</body>
+</html>

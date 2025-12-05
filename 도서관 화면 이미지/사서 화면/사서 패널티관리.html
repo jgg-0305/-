@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>패널티/제재 관리(사서용) - 동의대 도서관</title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        /* --- [공통 변수] 기존 전체 디자인 유지 --- */
+        :root {
+            --primary-blue: #2552e3;
+            --admin-dark: #1e293b; 
+            --bg-gray: #f1f5f9;
+            --text-dark: #333;
+            --border-color: #e2e8f0;
+            
+            /* 상태 표시용 컬러 */
+            --avail-green: #10ac84;
+            --loan-red: #e74c3c;      /* 연체/블랙리스트 */
+            --reserve-blue: #0984e3;
+            --warning-yellow: #f1c40f; 
+            --table-header: #f8fafc;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Noto Sans KR', sans-serif; background-color: var(--bg-gray); color: var(--text-dark); }
+        a { text-decoration: none; color: inherit; }
+        ul { list-style: none; }
+        
+        .container { max-width: 1400px; margin: 0 auto; padding: 0 20px; }
+
+        /* --- [헤더] --- */
+        header { background: #fff; padding: 15px 0; border-bottom: 1px solid #ddd; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        .header-inner { display: flex; justify-content: space-between; align-items: center; }
+        .logo { font-size: 22px; font-weight: 700; color: var(--admin-dark); display: flex; align-items: center; gap: 10px; }
+        .admin-badge { background: var(--admin-dark); color: #fff; padding: 4px 10px; border-radius: 4px; font-size: 12px; margin-left: 10px; }
+        .logout-btn { font-size: 14px; color: #666; font-weight: 500; }
+        .logout-btn:hover { text-decoration: underline; color: var(--loan-red); }
+
+        /* --- [레이아웃] --- */
+        .admin-layout { display: flex; gap: 30px; padding: 30px 0; }
+
+        /* [사이드바] */
+        .sidebar { width: 250px; flex-shrink: 0; background: #fff; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.03); height: fit-content; }
+        .sidebar-title { background: var(--admin-dark); color: #fff; padding: 15px 20px; font-weight: 700; font-size: 16px; border-radius: 8px 8px 0 0; }
+        .menu-list a { display: block; padding: 15px 20px; border-bottom: 1px solid #eee; font-size: 14px; color: #444; transition: 0.2s; }
+        .menu-list a:hover { background: #f8f9fa; color: var(--primary-blue); padding-left: 25px; }
+        /* 메뉴 활성화 상태 (패널티 관리) */
+        .menu-list a.active { background: #eef2ff; color: var(--primary-blue); font-weight: 700; border-left: 4px solid var(--primary-blue); }
+        .menu-list i { width: 25px; text-align: center; margin-right: 5px; color: #8898aa; }
+        .menu-list a.active i { color: var(--primary-blue); }
+
+        /* [메인 컨텐츠 영역] */
+        .main-content { flex: 1; }
+        .content-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .page-title { font-size: 24px; font-weight: 700; color: var(--text-dark); }
+        .breadcrumb { font-size: 14px; color: #7f8c8d; }
+
+        /* [검색 패널] (기존 디자인 유지) */
+        .search-panel { background: #fff; padding: 25px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.03); margin-bottom: 30px; display: flex; gap: 10px; align-items: center; }
+        .search-select { padding: 12px; border: 1px solid #ccc; border-radius: 4px; width: 150px; }
+        .search-input { flex: 1; padding: 12px; border: 1px solid #ccc; border-radius: 4px; }
+        .btn-search { background: var(--admin-dark); color: #fff; padding: 12px 30px; border: none; border-radius: 4px; font-weight: 700; cursor: pointer; }
+
+        /* --- [패널티 관리 전용 스타일 추가] --- */
+        
+        /* 사용자 상태 카드 */
+        .user-status-card { 
+            background: white; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); padding: 25px; margin-bottom: 30px; 
+            display: flex; justify-content: space-between; border: 1px solid var(--border-color); border-left: 5px solid #ddd; 
+        }
+        /* 블랙리스트일 때 강조 스타일 */
+        .user-status-card.blacklist { 
+            border-left-color: var(--loan-red); 
+            background-color: #fff5f5; 
+        }
+        
+        .info-group h3 { margin: 0 0 8px 0; font-size: 18px; color: #222; }
+        .info-group p { margin: 0; color: #666; font-size: 14px; margin-bottom: 15px; }
+
+        /* 계산 로직 박스 */
+        .calc-box {
+            background-color: #fff3cd;
+            padding: 15px;
+            border-radius: 6px;
+            margin-top: 10px;
+            border: 1px solid #ffeeba;
+            font-size: 13px;
+            line-height: 1.6;
+            color: #856404;
+            max-width: 650px;
+        }
+        .text-danger { color: var(--loan-red); font-weight: 700; }
+
+        /* 액션 버튼 그룹 */
+        .action-group { text-align: right; display: flex; flex-direction: column; justify-content: center; align-items: flex-end; gap: 10px; }
+        
+        .badge { padding: 5px 10px; border-radius: 20px; font-size: 12px; font-weight: 700; color: white; display: inline-block; }
+        .bg-red { background-color: var(--loan-red); }
+        .bg-gray { background-color: #95a5a6; }
+        .badge-active { background-color: var(--loan-red); }
+        .badge-expired { background-color: #95a5a6; }
+
+        .btn-primary { background-color: var(--primary-blue); color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; font-weight: 500; font-size: 13px; margin-left: 5px; }
+        .btn-green { background-color: #27ae60; }
+        
+        /* 이력 테이블 (기존 테이블 스타일 재사용) */
+        .history-section h3 { font-size: 16px; font-weight: 700; margin-bottom: 15px; color: #444; }
+        
+        table { width: 100%; border-collapse: collapse; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 5px rgba(0,0,0,0.05); border: 1px solid var(--border-color); }
+        th, td { padding: 12px 15px; text-align: left; border-bottom: 1px solid #eee; font-size: 13px; }
+        th { background-color: var(--table-header); font-weight: 600; color: #555; border-bottom: 1px solid #ddd; }
+        td { color: #444; vertical-align: middle; }
+
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="container header-inner">
+            <a href="#" class="logo">
+                <i class="fa-solid fa-book-open"></i> 동의대 도서관 <span class="admin-badge">사서</span>
+            </a>
+            <div>
+                <span style="margin-right: 20px; font-size: 14px;">관리자 <b>홍길동</b>님 접속중</span>
+                <a href="#" class="logout-btn"><i class="fa-solid fa-arrow-right-from-bracket"></i> 로그아웃</a>
+            </div>
+        </div>
+    </header>
+
+    <div class="container admin-layout">
+        
+        <aside class="sidebar">
+            <div class="sidebar-title">사서 관리 메뉴</div>
+            <nav class="menu-list">
+                <a href="#"><i class="fa-solid fa-book"></i> 도서 검색/대출 관리</a>
+                <a href="#"><i class="fa-solid fa-arrow-right-arrow-left"></i> 상호대차 신청 관리</a>
+                <a href="#"><i class="fa-solid fa-cart-plus"></i> 희망도서 신청 관리</a>
+                <a href="#"><i class="fa-solid fa-users"></i> 학생(회원) 관리</a>
+                <a href="#" class="active"><i class="fa-solid fa-ban"></i> 패널티/제재 관리</a>
+                <a href="#"><i class="fa-solid fa-hand-holding-heart"></i> 봉사활동 관리</a>
+                <a href="#"><i class="fa-solid fa-bullhorn"></i> 공지사항 관리</a>
+                <a href="#"><i class="fa-solid fa-chart-pie"></i> 도서관 통계</a>
+            </nav>
+        </aside>
+
+        <div class="main-content">
+            <div class="page-header">
+                <div>
+                    <h2 class="page-title">패널티 및 제재 관리</h2>
+                </div>
+                <div class="breadcrumb">대출 및 이용자 관리 > 패널티 관리</div>
+            </div>
+    
+            <div class="search-panel">
+                <span style="font-weight:bold; margin-right:5px;">회원 조회:</span>
+                <input type="text" class="search-input" placeholder="학번(20233849) 또는 이름(조기강) 입력" value="20233849">
+                <button class="btn-search" style="padding: 10px 20px;">조회</button>
+            </div>
+    
+            <div class="user-status-card blacklist">
+                <div class="info-group">
+                    <h3>조기강 (20233849) - 학부생</h3>
+                    <p>연락처: 010-1234-5678 | 소속: 컴퓨터공학과</p>
+                    
+                    <div class="calc-box">
+                        <strong>⚠️ 블랙리스트 대상 (대출/예약/이용 전면 제한)</strong><br>
+                        • 현재 연체: <span style="color:red; font-weight:bold;">2권</span> (디지털영상처리 외 1권)<br>
+                        • 최대 연체일: 24일<br>
+                        • <u>패널티 계산: 2권 × 24일 × 2 = <b style="color:red; font-size:1.1em;">96일</b> 정지</u>
+                        <br> * 규정: 91일 이상이므로 블랙리스트 자동 등재됨.
+                    </div>
+                </div>
+                
+                <div class="action-group">
+                    <div>
+                        <p style="margin-bottom:10px; font-size:13px; color:#555; display:inline-block; margin-right:5px;">현재 상태:</p> 
+                        <span class="badge bg-red" style="font-size:13px; padding:6px 12px;">BLACK LIST</span>
+                    </div>
+                    <div>
+                        <button class="btn-primary btn-green">제재 강제 해제</button>
+                        <button class="btn-primary" style="background-color:#95a5a6;">메모 저장</button>
+                    </div>
+                </div>
+            </div>
+    
+            <div class="history-section">
+                <h3>📋 제재 이력 (History)</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th width="8%">No</th>
+                            <th width="12%">위반 유형</th>
+                            <th width="35%">상세 사유 (도서명 등)</th>
+                            <th width="15%">제재 시작일</th>
+                            <th width="15%">제재 종료일</th>
+                            <th width="10%">상태 (유효여부)</th>
+                            <th width="10%">관리</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr style="background-color:#fff5f5;">
+                            <td>2</td>
+                            <td><span class="badge bg-red" style="font-size:11px;">블랙리스트</span></td>
+                            <td>[자동] 누적 패널티 91일 초과</td>
+                            <td>2025-12-05</td>
+                            <td>2026-03-11</td>
+                            <td><strong>적용 중</strong></td>
+                            <td><button style="cursor:pointer; padding:2px 6px; border:1px solid #ddd; background:#fff; border-radius:3px;">수정</button></td>
+                        </tr>
+                        <tr>
+                            <td>1</td>
+                            <td><span class="badge bg-gray" style="font-size:11px;">도서 연체</span></td>
+                            <td>'운영체제' 3일 연체 반납 (3일*1권*2=6일)</td>
+                            <td>2025-10-01</td>
+                            <td>2025-10-07</td>
+                            <td>종료됨</td>
+                            <td>-</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+
+</body>
+</html>
