@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI 스마트 분석 - 동의대 도서관</title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        /* --- [기존 공통 스타일] --- */
+        :root {
+            --primary-blue: #2552e3;
+            --ai-purple: #6c5ce7; /* AI 전용 컬러 */
+            --admin-dark: #1e293b; 
+            --bg-gray: #f1f5f9;
+            --text-dark: #333;
+            --card-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Noto Sans KR', sans-serif; background-color: var(--bg-gray); color: var(--text-dark); }
+        a { text-decoration: none; color: inherit; }
+        ul { list-style: none; }
+        
+        .container { max-width: 1400px; margin: 0 auto; padding: 0 20px; }
+
+        header { background: #fff; padding: 15px 0; border-bottom: 1px solid #ddd; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        .header-inner { display: flex; justify-content: space-between; align-items: center; }
+        .logo { font-size: 22px; font-weight: 700; color: var(--admin-dark); display: flex; align-items: center; gap: 10px; }
+        .admin-badge { background: var(--admin-dark); color: #fff; padding: 4px 10px; border-radius: 4px; font-size: 12px; margin-left: 10px; }
+        .logout-btn { font-size: 14px; color: #666; font-weight: 500; }
+
+        .admin-layout { display: flex; gap: 30px; padding: 30px 0; height: calc(100vh - 70px); /* 꽉 찬 높이 */ }
+        .sidebar { width: 250px; flex-shrink: 0; background: #fff; border-radius: 8px; box-shadow: var(--card-shadow); height: fit-content; }
+        .sidebar-title { background: var(--admin-dark); color: #fff; padding: 15px 20px; font-weight: 700; font-size: 16px; border-radius: 8px 8px 0 0; }
+        .menu-list a { display: block; padding: 15px 20px; border-bottom: 1px solid #eee; font-size: 14px; color: #444; transition: 0.2s; }
+        .menu-list a:hover { background: #f8f9fa; color: var(--primary-blue); padding-left: 25px; }
+        .menu-list i { width: 25px; text-align: center; margin-right: 5px; color: #8898aa; }
+        
+        /* AI 메뉴 강조 */
+        .menu-ai { background: #f3e5f5; color: var(--ai-purple) !important; font-weight: 700; border-left: 4px solid var(--ai-purple); padding-left: 21px !important; }
+        .menu-ai i { color: var(--ai-purple) !important; }
+
+        /* --- [AI 분석 페이지 전용 레이아웃] --- */
+        .main-content { flex: 1; display: flex; flex-direction: column; height: 100%; }
+        .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .page-title { font-size: 24px; font-weight: 700; color: var(--admin-dark); display: flex; align-items: center; gap: 10px; }
+        .ai-tag { background: var(--ai-purple); color: #fff; font-size: 12px; padding: 3px 8px; border-radius: 12px; font-weight: 500; }
+
+        /* 화면 분할 (좌: 채팅 / 우: 결과) */
+        .ai-layout { display: flex; gap: 20px; height: 100%; overflow: hidden; }
+        
+        /* 1. 채팅 영역 */
+        .chat-panel { width: 400px; background: #fff; border-radius: 12px; box-shadow: var(--card-shadow); display: flex; flex-direction: column; overflow: hidden; border: 1px solid #e2e8f0; }
+        .chat-header { background: #f8fafc; padding: 15px; border-bottom: 1px solid #eee; font-weight: 600; color: #333; display: flex; align-items: center; gap: 8px; }
+        .chat-messages { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 15px; background: #fff; }
+        
+        .message { max-width: 85%; padding: 12px 16px; border-radius: 12px; font-size: 14px; line-height: 1.5; position: relative; }
+        .msg-ai { background: #f3f0ff; color: #333; align-self: flex-start; border-bottom-left-radius: 2px; }
+        .msg-user { background: var(--ai-purple); color: #fff; align-self: flex-end; border-bottom-right-radius: 2px; }
+        .msg-time { font-size: 11px; color: #999; margin-top: 4px; display: block; text-align: right; }
+
+        .chat-input-area { padding: 15px; border-top: 1px solid #eee; background: #fff; display: flex; gap: 10px; }
+        .chat-input { flex: 1; padding: 12px; border: 1px solid #ddd; border-radius: 8px; outline: none; transition: 0.2s; }
+        .chat-input:focus { border-color: var(--ai-purple); }
+        .btn-send { background: var(--ai-purple); color: #fff; border: none; width: 45px; height: 45px; border-radius: 8px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 18px; }
+        .btn-send:hover { background: #5649c0; }
+
+        /* 2. 결과 시각화 영역 */
+        .result-panel { flex: 1; background: #fff; border-radius: 12px; box-shadow: var(--card-shadow); display: flex; flex-direction: column; padding: 30px; border: 1px solid #e2e8f0; align-items: center; justify-content: center; position: relative; }
+        
+        /* 초기 상태 (데이터 없음) */
+        .empty-state { text-align: center; color: #94a3b8; }
+        .empty-icon { font-size: 60px; margin-bottom: 20px; color: #cbd5e1; }
+
+        /* 차트 컨테이너 (결과 있을 때) */
+        .chart-wrapper { width: 100%; height: 100%; display: none; flex-direction: column; }
+        .chart-info { margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid #eee; }
+        .chart-sql { font-family: 'Courier New', monospace; background: #1e293b; color: #00ff88; padding: 10px; border-radius: 6px; font-size: 12px; margin-top: 10px; display: none; }
+        .chart-canvas-box { flex: 1; position: relative; width: 100%; }
+
+        /* 로딩 애니메이션 */
+        .thinking-box { display: none; text-align: center; }
+        .spinner { border: 4px solid #f3f3f3; border-top: 4px solid var(--ai-purple); border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 0 auto 15px; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .process-text { font-size: 14px; color: #666; animation: blink 1.5s infinite; }
+        @keyframes blink { 0% { opacity: 0.5; } 50% { opacity: 1; } 100% { opacity: 0.5; } }
+
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="container header-inner">
+            <a href="index.html" class="logo">
+                <i class="fa-solid fa-book-open"></i> 동의대 도서관 <span class="admin-badge">ADMIN</span>
+            </a>
+            <div>
+                <span style="margin-right: 20px; font-size: 14px;">관리자 <b>홍길동</b>님 접속중</span>
+                <a href="index.html" class="logout-btn"><i class="fa-solid fa-arrow-right-from-bracket"></i> 로그아웃</a>
+            </div>
+        </div>
+    </header>
+
+    <div class="container admin-layout">
+        <aside class="sidebar">
+            <div class="sidebar-title">사서 관리 메뉴</div>
+            <nav class="menu-list">
+                <a href="librarian_final_v3.html"><i class="fa-solid fa-book"></i> 도서 검색/대출 관리</a>
+                <a href="admin_ill_management.html"><i class="fa-solid fa-arrow-right-arrow-left"></i> 상호대차 신청 관리</a>
+                <a href="admin_purchase_request.html"><i class="fa-solid fa-cart-plus"></i> 희망도서 신청 관리</a>
+                <a href="admin_student_list.html"><i class="fa-solid fa-users"></i> 학생(회원) 관리</a>
+                <a href="admin_statistics.html"><i class="fa-solid fa-chart-pie"></i> 도서관 통계</a>
+                <a href="admin_ai_analytics.html" class="menu-ai"><i class="fa-solid fa-wand-magic-sparkles"></i> AI 스마트 분석</a>
+            </nav>
+        </aside>
+
+        <main class="main-content">
+            <div class="page-header">
+                <div class="page-title">
+                    <i class="fa-solid fa-wand-magic-sparkles" style="color:var(--ai-purple);"></i>
+                    AI 스마트 통계 분석
+                    <span class="ai-tag">Beta</span>
+                </div>
+            </div>
+
+            <div class="ai-layout">
+                
+                <div class="chat-panel">
+                    <div class="chat-header">
+                        <i class="fa-solid fa-robot" style="color:var(--ai-purple);"></i> Library AI Assistant
+                    </div>
+                    <div class="chat-messages" id="chatBox">
+                        <div class="message msg-ai">
+                            안녕하세요! 도서관 데이터 AI 비서입니다. 🤖<br>
+                            궁금하신 통계 정보를 물어보시면, DB를 분석하여 시각화해드립니다.<br><br>
+                            예시:<br>
+                            - "학과별 대출 현황 보여줘"<br>
+                            - "이번 달 일별 방문자 수는?"<br>
+                            - "가장 많이 빌린 책 Top 5"
+                            <span class="msg-time">오전 09:00</span>
+                        </div>
+                    </div>
+                    <div class="chat-input-area">
+                        <input type="text" id="userInput" class="chat-input" placeholder="질문을 입력하세요..." onkeypress="if(event.keyCode==13) sendMessage()">
+                        <button class="btn-send" onclick="sendMessage()"><i class="fa-solid fa-paper-plane"></i></button>
+                    </div>
+                </div>
+
+                <div class="result-panel" id="resultPanel">
+                    
+                    <div id="emptyState" class="empty-state">
+                        <i class="fa-solid fa-chart-simple empty-icon"></i>
+                        <h3>데이터 분석 대기중</h3>
+                        <p>좌측 채팅창에 통계 관련 질문을 입력해주세요.</p>
+                    </div>
+
+                    <div id="loadingState" class="thinking-box">
+                        <div class="spinner"></div>
+                        <div class="process-text" id="processText">질문 분석 중...</div>
+                    </div>
+
+                    <div id="chartState" class="chart-wrapper">
+                        <div class="chart-info">
+                            <h3 id="chartTitle" style="color:#333; margin-bottom:5px;">분석 결과 제목</h3>
+                            <p id="chartDesc" style="color:#666; font-size:14px;">설명 텍스트</p>
+                            <div class="chart-sql" id="sqlBox">
+                                SELECT department, COUNT(*) as loan_count <br>
+                                FROM loan_history <br>
+                                WHERE loan_date BETWEEN '2025-01-01' AND '2025-12-31' <br>
+                                GROUP BY department;
+                            </div>
+                        </div>
+                        <div class="chart-canvas-box">
+                            <canvas id="aiChart"></canvas>
+                        </div>
+                    </div>
+
+                </div>
+
+            </div>
+
+        </main>
+    </div>
+
+    <script>
+        let currentChart = null;
+
+        function sendMessage() {
+            const inputField = document.getElementById('userInput');
+            const message = inputField.value.trim();
+            if (!message) return;
+
+            // 1. 사용자 메시지 추가
+            addMessage(message, 'user');
+            inputField.value = '';
+
+            // 2. UI 상태 변경 (로딩 시작)
+            document.getElementById('emptyState').style.display = 'none';
+            document.getElementById('chartState').style.display = 'none';
+            document.getElementById('loadingState').style.display = 'block';
+
+            // 3. LLM 처리 시뮬레이션 (단계별 텍스트 변경)
+            const processText = document.getElementById('processText');
+            
+            setTimeout(() => { processText.innerText = "테이블 스키마 스캔 중..."; }, 800);
+            setTimeout(() => { processText.innerText = "SQL 쿼리 생성 중..."; }, 1600);
+            setTimeout(() => { processText.innerText = "데이터 추출 및 시각화 중..."; }, 2400);
+
+            // 4. 결과 출력 (3초 후)
+            setTimeout(() => {
+                document.getElementById('loadingState').style.display = 'none';
+                document.getElementById('chartState').style.display = 'flex';
+                
+                // AI 응답 메시지 추가
+                addMessage("요청하신 데이터를 분석하여 차트로 생성했습니다.", 'ai');
+
+                // 차트 그리기 로직 호출
+                generateChart(message);
+            }, 3000);
+        }
+
+        function addMessage(text, type) {
+            const chatBox = document.getElementById('chatBox');
+            const div = document.createElement('div');
+            div.className = `message msg-${type}`;
+            
+            const time = new Date().toLocaleTimeString('ko-KR', {hour: '2-digit', minute:'2-digit'});
+            div.innerHTML = `${text} <span class="msg-time">${time}</span>`;
+            
+            chatBox.appendChild(div);
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+
+        // LLM이 쿼리를 분석해서 적절한 차트를 그리는 로직 (시뮬레이션)
+        function generateChart(query) {
+            const ctx = document.getElementById('aiChart').getContext('2d');
+            const sqlBox = document.getElementById('sqlBox');
+            sqlBox.style.display = 'block'; // SQL 보여주기
+
+            // 기존 차트 파괴
+            if (currentChart) currentChart.destroy();
+
+            let chartType, labels, data, colors, title, sql;
+
+            // 키워드에 따른 분기 처리
+            if (query.includes("학과") || query.includes("전공")) {
+                // 케이스 1: 학과별 대출
+                title = "학과별 도서 대출 현황 (Top 5)";
+                document.getElementById('chartDesc').innerText = "컴퓨터공학과의 대출 빈도가 가장 높게 나타났습니다.";
+                sql = "SELECT department, COUNT(*) FROM loans GROUP BY department ORDER BY count DESC LIMIT 5";
+                
+                chartType = 'bar';
+                labels = ['컴퓨터공학', '경영학', '디자인', '간호학', '기계공학'];
+                data = [120, 95, 80, 75, 60];
+                colors = ['#6c5ce7', '#a29bfe', '#a29bfe', '#a29bfe', '#a29bfe']; // 1등 강조
+
+            } else if (query.includes("방문") || query.includes("시간")) {
+                // 케이스 2: 시간대별 방문
+                title = "시간대별 도서관 이용객 추이";
+                document.getElementById('chartDesc').innerText = "오후 2시~4시 사이에 이용객이 가장 많습니다.";
+                sql = "SELECT HOUR(entry_time), COUNT(*) FROM visits GROUP BY HOUR(entry_time)";
+
+                chartType = 'line';
+                labels = ['09시', '11시', '13시', '15시', '17시', '19시'];
+                data = [30, 80, 150, 200, 120, 60];
+                colors = '#6c5ce7';
+
+            } else {
+                // 케이스 3: 기본 (인기 도서) - 그 외 모든 질문
+                title = "현재 대출 인기도서 순위";
+                document.getElementById('chartDesc').innerText = "최근 30일 기준 대출 횟수 상위 도서입니다.";
+                sql = "SELECT book_title, count FROM best_loans ORDER BY count DESC LIMIT 5";
+
+                chartType = 'doughnut';
+                labels = ['모던 자바스크립트', '코스모스', '채식주의자', '파이썬 입문', '기타'];
+                data = [30, 25, 20, 15, 10];
+                colors = ['#6c5ce7', '#a29bfe', '#74b9ff', '#81ecec', '#dfe6e9'];
+            }
+
+            // SQL 텍스트 업데이트
+            sqlBox.innerHTML = sql;
+            document.getElementById('chartTitle').innerText = title;
+
+            // 차트 생성
+            currentChart = new Chart(ctx, {
+                type: chartType,
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: '데이터',
+                        data: data,
+                        backgroundColor: colors,
+                        borderColor: (chartType === 'line') ? '#6c5ce7' : null,
+                        borderWidth: 1,
+                        tension: 0.3,
+                        fill: (chartType === 'line')
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: (chartType === 'doughnut') } }
+                }
+            });
+        }
+    </script>
+</body>
+</html>
