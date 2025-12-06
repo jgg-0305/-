@@ -9,10 +9,10 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <style>
-        /* --- [기존 공통 스타일] --- */
+        /* --- [기존 공통 스타일 유지] --- */
         :root {
             --primary-blue: #2552e3;
-            --ai-purple: #6c5ce7; /* AI 전용 컬러 */
+            --ai-purple: #6c5ce7;
             --admin-dark: #1e293b; 
             --bg-gray: #f1f5f9;
             --text-dark: #333;
@@ -32,27 +32,25 @@
         .admin-badge { background: var(--admin-dark); color: #fff; padding: 4px 10px; border-radius: 4px; font-size: 12px; margin-left: 10px; }
         .logout-btn { font-size: 14px; color: #666; font-weight: 500; }
 
-        .admin-layout { display: flex; gap: 30px; padding: 30px 0; height: calc(100vh - 70px); /* 꽉 찬 높이 */ }
+        .admin-layout { display: flex; gap: 30px; padding: 30px 0; height: calc(100vh - 70px); }
         .sidebar { width: 250px; flex-shrink: 0; background: #fff; border-radius: 8px; box-shadow: var(--card-shadow); height: fit-content; }
         .sidebar-title { background: var(--admin-dark); color: #fff; padding: 15px 20px; font-weight: 700; font-size: 16px; border-radius: 8px 8px 0 0; }
         .menu-list a { display: block; padding: 15px 20px; border-bottom: 1px solid #eee; font-size: 14px; color: #444; transition: 0.2s; }
         .menu-list a:hover { background: #f8f9fa; color: var(--primary-blue); padding-left: 25px; }
         .menu-list i { width: 25px; text-align: center; margin-right: 5px; color: #8898aa; }
         
-        /* AI 메뉴 강조 */
         .menu-ai { background: #f3e5f5; color: var(--ai-purple) !important; font-weight: 700; border-left: 4px solid var(--ai-purple); padding-left: 21px !important; }
         .menu-ai i { color: var(--ai-purple) !important; }
 
-        /* --- [AI 분석 페이지 전용 레이아웃] --- */
         .main-content { flex: 1; display: flex; flex-direction: column; height: 100%; }
         .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
         .page-title { font-size: 24px; font-weight: 700; color: var(--admin-dark); display: flex; align-items: center; gap: 10px; }
         .ai-tag { background: var(--ai-purple); color: #fff; font-size: 12px; padding: 3px 8px; border-radius: 12px; font-weight: 500; }
 
-        /* 화면 분할 (좌: 채팅 / 우: 결과) */
+        /* 화면 분할 */
         .ai-layout { display: flex; gap: 20px; height: 100%; overflow: hidden; }
         
-        /* 1. 채팅 영역 */
+        /* 채팅 영역 */
         .chat-panel { width: 400px; background: #fff; border-radius: 12px; box-shadow: var(--card-shadow); display: flex; flex-direction: column; overflow: hidden; border: 1px solid #e2e8f0; }
         .chat-header { background: #f8fafc; padding: 15px; border-bottom: 1px solid #eee; font-weight: 600; color: #333; display: flex; align-items: center; gap: 8px; }
         .chat-messages { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 15px; background: #fff; }
@@ -68,18 +66,50 @@
         .btn-send { background: var(--ai-purple); color: #fff; border: none; width: 45px; height: 45px; border-radius: 8px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 18px; }
         .btn-send:hover { background: #5649c0; }
 
-        /* 2. 결과 시각화 영역 */
+        /* 결과 시각화 영역 */
         .result-panel { flex: 1; background: #fff; border-radius: 12px; box-shadow: var(--card-shadow); display: flex; flex-direction: column; padding: 30px; border: 1px solid #e2e8f0; align-items: center; justify-content: center; position: relative; }
         
-        /* 초기 상태 (데이터 없음) */
         .empty-state { text-align: center; color: #94a3b8; }
         .empty-icon { font-size: 60px; margin-bottom: 20px; color: #cbd5e1; }
 
-        /* 차트 컨테이너 (결과 있을 때) */
+        /* 차트 및 저장 버튼 컨테이너 */
         .chart-wrapper { width: 100%; height: 100%; display: none; flex-direction: column; }
+        
+        /* 차트 설명 부분 (SQL 박스 제거됨) */
         .chart-info { margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid #eee; }
-        .chart-sql { font-family: 'Courier New', monospace; background: #1e293b; color: #00ff88; padding: 10px; border-radius: 6px; font-size: 12px; margin-top: 10px; display: none; }
-        .chart-canvas-box { flex: 1; position: relative; width: 100%; }
+        
+        .chart-canvas-box { flex: 1; position: relative; width: 100%; min-height: 300px; }
+
+        /* --- [새로 추가된 저장 버튼 영역 스타일] --- */
+        .save-actions { 
+            display: none; /* 초기에는 숨김 */
+            margin-top: 20px; 
+            padding-top: 20px; 
+            border-top: 1px solid #eee; 
+            text-align: center; 
+        }
+        .btn-save {
+            background: var(--ai-purple);
+            color: #fff;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 6px;
+            font-size: 15px;
+            font-weight: 500;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: 0.2s;
+            box-shadow: 0 4px 6px rgba(108, 92, 231, 0.2);
+        }
+        .btn-save:hover { background: #5649c0; transform: translateY(-2px); }
+        .save-desc { 
+            font-size: 12px; 
+            color: #888; 
+            margin-top: 10px; 
+            font-weight: 300;
+        }
 
         /* 로딩 애니메이션 */
         .thinking-box { display: none; text-align: center; }
@@ -166,15 +196,18 @@
                         <div class="chart-info">
                             <h3 id="chartTitle" style="color:#333; margin-bottom:5px;">분석 결과 제목</h3>
                             <p id="chartDesc" style="color:#666; font-size:14px;">설명 텍스트</p>
-                            <div class="chart-sql" id="sqlBox">
-                                SELECT department, COUNT(*) as loan_count <br>
-                                FROM loan_history <br>
-                                WHERE loan_date BETWEEN '2025-01-01' AND '2025-12-31' <br>
-                                GROUP BY department;
                             </div>
-                        </div>
                         <div class="chart-canvas-box">
                             <canvas id="aiChart"></canvas>
+                        </div>
+
+                        <div class="save-actions" id="saveActionArea">
+                            <button class="btn-save" onclick="saveData()">
+                                <i class="fa-solid fa-download"></i> 결과 저장 및 PDF 다운로드
+                            </button>
+                            <p class="save-desc">
+                                * 저장하면 데이터베이스에 저장되고 시각화 된 통계가 pdf 로 다운로드 됩니다.
+                            </p>
                         </div>
                     </div>
 
@@ -201,23 +234,23 @@
             document.getElementById('emptyState').style.display = 'none';
             document.getElementById('chartState').style.display = 'none';
             document.getElementById('loadingState').style.display = 'block';
+            document.getElementById('saveActionArea').style.display = 'none'; // 버튼 숨김
 
-            // 3. LLM 처리 시뮬레이션 (단계별 텍스트 변경)
+            // 3. LLM 처리 시뮬레이션
             const processText = document.getElementById('processText');
             
             setTimeout(() => { processText.innerText = "테이블 스키마 스캔 중..."; }, 800);
-            setTimeout(() => { processText.innerText = "SQL 쿼리 생성 중..."; }, 1600);
+            setTimeout(() => { processText.innerText = "안전한 쿼리 생성 중..."; }, 1600);
             setTimeout(() => { processText.innerText = "데이터 추출 및 시각화 중..."; }, 2400);
 
-            // 4. 결과 출력 (3초 후)
+            // 4. 결과 출력
             setTimeout(() => {
                 document.getElementById('loadingState').style.display = 'none';
                 document.getElementById('chartState').style.display = 'flex';
+                document.getElementById('saveActionArea').style.display = 'block'; // 버튼 표시
                 
-                // AI 응답 메시지 추가
                 addMessage("요청하신 데이터를 분석하여 차트로 생성했습니다.", 'ai');
 
-                // 차트 그리기 로직 호출
                 generateChart(message);
             }, 3000);
         }
@@ -234,34 +267,27 @@
             chatBox.scrollTop = chatBox.scrollHeight;
         }
 
-        // LLM이 쿼리를 분석해서 적절한 차트를 그리는 로직 (시뮬레이션)
         function generateChart(query) {
             const ctx = document.getElementById('aiChart').getContext('2d');
-            const sqlBox = document.getElementById('sqlBox');
-            sqlBox.style.display = 'block'; // SQL 보여주기
-
+            
             // 기존 차트 파괴
             if (currentChart) currentChart.destroy();
 
-            let chartType, labels, data, colors, title, sql;
+            let chartType, labels, data, colors, title;
 
-            // 키워드에 따른 분기 처리
+            // 키워드에 따른 분기 처리 (시뮬레이션)
             if (query.includes("학과") || query.includes("전공")) {
-                // 케이스 1: 학과별 대출
                 title = "학과별 도서 대출 현황 (Top 5)";
                 document.getElementById('chartDesc').innerText = "컴퓨터공학과의 대출 빈도가 가장 높게 나타났습니다.";
-                sql = "SELECT department, COUNT(*) FROM loans GROUP BY department ORDER BY count DESC LIMIT 5";
                 
                 chartType = 'bar';
                 labels = ['컴퓨터공학', '경영학', '디자인', '간호학', '기계공학'];
                 data = [120, 95, 80, 75, 60];
-                colors = ['#6c5ce7', '#a29bfe', '#a29bfe', '#a29bfe', '#a29bfe']; // 1등 강조
+                colors = ['#6c5ce7', '#a29bfe', '#a29bfe', '#a29bfe', '#a29bfe']; 
 
             } else if (query.includes("방문") || query.includes("시간")) {
-                // 케이스 2: 시간대별 방문
                 title = "시간대별 도서관 이용객 추이";
                 document.getElementById('chartDesc').innerText = "오후 2시~4시 사이에 이용객이 가장 많습니다.";
-                sql = "SELECT HOUR(entry_time), COUNT(*) FROM visits GROUP BY HOUR(entry_time)";
 
                 chartType = 'line';
                 labels = ['09시', '11시', '13시', '15시', '17시', '19시'];
@@ -269,10 +295,8 @@
                 colors = '#6c5ce7';
 
             } else {
-                // 케이스 3: 기본 (인기 도서) - 그 외 모든 질문
                 title = "현재 대출 인기도서 순위";
                 document.getElementById('chartDesc').innerText = "최근 30일 기준 대출 횟수 상위 도서입니다.";
-                sql = "SELECT book_title, count FROM best_loans ORDER BY count DESC LIMIT 5";
 
                 chartType = 'doughnut';
                 labels = ['모던 자바스크립트', '코스모스', '채식주의자', '파이썬 입문', '기타'];
@@ -280,11 +304,8 @@
                 colors = ['#6c5ce7', '#a29bfe', '#74b9ff', '#81ecec', '#dfe6e9'];
             }
 
-            // SQL 텍스트 업데이트
-            sqlBox.innerHTML = sql;
             document.getElementById('chartTitle').innerText = title;
 
-            // 차트 생성
             currentChart = new Chart(ctx, {
                 type: chartType,
                 data: {
@@ -305,6 +326,13 @@
                     plugins: { legend: { display: (chartType === 'doughnut') } }
                 }
             });
+        }
+
+        // 저장 버튼 클릭 시 실행될 함수 (실제 구현 시 백엔드 연동 필요)
+        function saveData() {
+            // 여기에 DB 저장 및 PDF 생성 로직 연결
+            alert("데이터가 DB에 저장되었습니다.\nPDF 다운로드를 시작합니다.");
+            // window.print(); // 임시로 인쇄창 띄우기 등의 로직 가능
         }
     </script>
 </body>
