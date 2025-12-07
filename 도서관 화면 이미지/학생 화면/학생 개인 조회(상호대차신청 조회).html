@@ -16,6 +16,7 @@
             --border-color: #ddd;
             --info-bg: #e3f2fd;
             --table-header: #f8fafc;
+            --btn-cancel-color: #e74c3c; /* 취소 버튼 색상 */
         }
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -79,6 +80,24 @@
         .bg-cancelled { background: #c0392b; } /* 취소 */
 
         .no-data { padding: 50px; color: #888; text-align: center; background: #fff; border-bottom: 1px solid #ddd; }
+
+        /* [추가됨] 버튼 스타일 */
+        .btn-view { border: 1px solid #ddd; background: #fff; padding: 3px 8px; border-radius: 4px; font-size: 11px; cursor: pointer; transition: 0.2s; }
+        .btn-view:hover { background: #f1f1f1; }
+        
+        .btn-cancel { 
+            border: 1px solid var(--btn-cancel-color); 
+            background: #fff; 
+            color: var(--btn-cancel-color); 
+            padding: 3px 8px; 
+            border-radius: 4px; 
+            font-size: 11px; 
+            cursor: pointer; 
+            margin-left: 5px; 
+            transition: 0.2s; 
+        }
+        .btn-cancel:hover { background: var(--btn-cancel-color); color: #fff; }
+
 
         /* 페이지네이션 */
         .pagination { display: flex; justify-content: center; gap: 5px; margin-top: 20px; }
@@ -152,7 +171,7 @@
                     <th width="15%">신청도서관</th>
                     <th width="12%">신청일</th>
                     <th width="10%">처리상태</th>
-                    <th width="10%">상세정보</th>
+                    <th width="12%">상세정보</th>
                 </tr>
             </thead>
             <tbody>
@@ -160,30 +179,37 @@
                     <td>3</td>
                     <td class="title-cell">인공지능의 미래 (The Future of AI)</td>
                     <td>스튜어트 러셀</td>
-                    <td>부산대학교</td>
+                    <td>동의대학교</td>
                     <td>2025-12-05</td>
                     <td><span class="status-badge bg-pending">신청중</span></td>
-                    <td><button style="border:1px solid #ddd; background:#fff; padding:3px 8px; border-radius:4px; font-size:11px;">보기</button></td>
+                    <td>
+                        <button class="btn-view">보기</button>
+                        <button class="btn-cancel" onclick="cancelRequest()">취소</button>
+                    </td>
                 </tr>
 
                 <tr>
                     <td>2</td>
                     <td class="title-cell">UX 디자인의 법칙</td>
                     <td>존 야블론스키</td>
-                    <td>부경대학교</td>
+                    <td>동의대학교</td>
                     <td>2025-12-04</td>
                     <td><span class="status-badge bg-shipping">배송중</span></td>
-                    <td><button style="border:1px solid #ddd; background:#fff; padding:3px 8px; border-radius:4px; font-size:11px;">보기</button></td>
+                    <td>
+                        <button class="btn-view">보기</button>
+                    </td>
                 </tr>
 
                 <tr>
                     <td>1</td>
                     <td class="title-cell">마케팅 불변의 법칙</td>
                     <td>알 리스</td>
-                    <td>경성대학교</td>
+                    <td>동의대학교</td>
                     <td>2025-12-01</td>
                     <td><span class="status-badge bg-arrived">도착</span></td>
-                    <td><button style="border:1px solid #ddd; background:#fff; padding:3px 8px; border-radius:4px; font-size:11px;">보기</button></td>
+                    <td>
+                         <button class="btn-view">보기</button>
+                    </td>
                 </tr>
 
                 </tbody>
@@ -231,6 +257,16 @@
             </div>
         </div>
     </footer>
+
+    <script>
+        function cancelRequest() {
+            if(confirm("정말 상호대차 신청을 취소하시겠습니까?")) {
+                alert("신청이 취소되었습니다.");
+                // 실제 개발 시에는 여기서 서버로 삭제(취소) 요청을 보낸 후 새로고침해야 합니다.
+                // location.reload();
+            }
+        }
+    </script>
 
 </body>
 </html>

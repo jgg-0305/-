@@ -16,6 +16,7 @@
             --text-light: #666;
             --accent-yellow: #f5a623;
             --border-color: #ddd;
+            --table-header: #f1f5f9;
         }
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -50,31 +51,39 @@
         /* 버튼 스타일 */
         .action-buttons { margin-top: 20px; display: flex; gap: 10px; }
         .btn { padding: 12px 25px; border-radius: 5px; font-weight: 700; cursor: pointer; border: none; font-size: 15px; transition: 0.3s; display: inline-flex; align-items: center; gap: 8px; }
+        
+        /* [수정됨] 대출하기 버튼용 Primary 스타일 */
         .btn-primary { background: var(--primary-blue); color: #fff; }
         .btn-primary:hover { background: #1a3dbf; }
-        .btn-outline { background: #fff; border: 1px solid var(--primary-blue); color: var(--primary-blue); }
-        .btn-outline:hover { background: #eef2ff; }
         
-        /* 책 위치 출력 버튼 (아이콘 프린터) */
+        /* 인쇄 버튼 */
         .btn-print { background: #4b5563; color: #fff; }
         .btn-print:hover { background: #374151; }
 
-        /* --- 리뷰 섹션 스타일 --- */
-        .review-container { background: #fff; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-top: 30px; }
+        /* --- 소장 정보 테이블 스타일 --- */
+        .holdings-container { background: #fff; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-bottom: 30px; }
         .section-title { font-size: 20px; font-weight: 700; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; }
         
-        .review-list { display: flex; flex-direction: column; gap: 20px; }
+        .holdings-table { width: 100%; border-collapse: collapse; font-size: 14px; text-align: center; }
+        .holdings-table th { background: var(--table-header); padding: 12px; border-bottom: 2px solid #ddd; color: #333; font-weight: 600; }
+        .holdings-table td { padding: 12px; border-bottom: 1px solid #eee; color: #555; }
         
+        .status-badge { display: inline-block; padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: 700; }
+        .st-avail { background: #e6fcf5; color: #0ca678; border: 1px solid #c3fae8; } 
+        .st-loaned { background: #fff5f5; color: #fa5252; border: 1px solid #ffc9c9; }
+        .st-lost { background: #f1f3f5; color: #868e96; border: 1px solid #dee2e6; } 
+
+        /* --- 리뷰 섹션 스타일 --- */
+        .review-container { background: #fff; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+        .review-list { display: flex; flex-direction: column; gap: 20px; }
         .review-card { border-bottom: 1px solid #eee; padding-bottom: 20px; }
         .review-card:last-child { border-bottom: none; padding-bottom: 0; }
         
         .rev-header { display: flex; justify-content: space-between; margin-bottom: 10px; }
         .rev-user { font-weight: 700; font-size: 15px; display: flex; align-items: center; gap: 8px; }
         .rev-date { font-size: 13px; color: #999; }
-        
         .star-rating { color: #ddd; font-size: 14px; }
         .star-rating .filled { color: var(--accent-yellow); }
-
         .rev-title { font-weight: 700; font-size: 16px; margin-bottom: 8px; color: #222; }
         .rev-content { font-size: 14px; color: #555; line-height: 1.6; background: #f9f9f9; padding: 15px; border-radius: 5px; }
 
@@ -84,77 +93,29 @@
         .form-textarea { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px; height: 80px; resize: none; outline: none; margin-bottom: 10px; }
         .form-select { padding: 10px; border: 1px solid #ddd; border-radius: 5px; }
 
-        /* --- 푸터 스타일 --- */
+        /* --- 푸터 및 인쇄 스타일 --- */
         footer { background: #0f172a; color: #a0aec0; padding-top: 60px; padding-bottom: 30px; font-size: 14px; margin-top: 50px; }
         .footer-grid { display: grid; grid-template-columns: 1.5fr 1fr 1fr 1.2fr; gap: 40px; margin-bottom: 50px; }
-        
         footer h4 { color: #fff; font-size: 16px; font-weight: 700; margin-bottom: 20px; }
         footer ul li { margin-bottom: 12px; }
         footer ul li a { color: #a0aec0; transition: 0.3s; }
-        footer ul li a:hover { color: #fff; text-decoration: underline; }
-
-        .footer-brand .f-logo { color: #fff; font-size: 20px; font-weight: 700; display: inline-block; margin-bottom: 15px; }
-        .footer-brand p { line-height: 1.6; margin-bottom: 20px; font-size: 13px; }
-        .social-icons a { display: inline-flex; width: 32px; height: 32px; background: rgba(255,255,255,0.1); color: #fff; border-radius: 50%; align-items: center; justify-content: center; margin-right: 10px; transition: 0.3s; }
-        .social-icons a:hover { background: var(--primary-blue); }
-
-        .contact-info li { display: flex; align-items: start; gap: 10px; margin-bottom: 15px; }
-        .contact-info i { margin-top: 4px; color: #fff; }
-
         .copyright { border-top: 1px solid rgba(255,255,255,0.1); padding-top: 25px; text-align: center; font-size: 13px; color: #718096; }
 
-
-        /* ----------------------------------------------------------- */
-        /* [중요] 영수증(Slip) 스타일 및 인쇄 전용 설정 (@media print) */
-        /* ----------------------------------------------------------- */
-        
-        /* 화면에서는 영수증을 숨김 */
         #print-receipt-area { display: none; }
-
         @media print {
-            /* 1. 웹사이트의 모든 요소 숨김 */
-            body * {
-                visibility: hidden;
-            }
-
-            /* 2. 영수증 영역만 보이게 설정 */
-            #print-receipt-area, #print-receipt-area * {
-                visibility: visible;
-            }
-
-            /* 3. 영수증 위치 및 스타일 잡기 */
+            body * { visibility: hidden; }
+            #print-receipt-area, #print-receipt-area * { visibility: visible; }
             #print-receipt-area {
-                display: block !important;
-                position: absolute;
-                left: 0;
-                top: 0;
-                width: 80mm; /* 일반적인 영수증 폭 */
-                padding: 10px;
-                font-family: 'Courier Prime', 'Courier New', monospace; /* 영수증 폰트 느낌 */
-                color: #000;
-                text-align: center;
-                border: none;
+                display: block !important; position: absolute; left: 0; top: 0; width: 80mm;
+                padding: 10px; font-family: 'Courier Prime', monospace; color: #000; text-align: center;
             }
-
             .receipt-header { border-bottom: 2px dashed #000; padding-bottom: 10px; margin-bottom: 10px; }
             .receipt-logo { font-size: 18px; font-weight: 900; display: block; margin-bottom: 5px; }
             .receipt-date { font-size: 10px; }
-            
             .receipt-body { text-align: left; margin-bottom: 15px; }
             .receipt-label { font-size: 10px; font-weight: bold; margin-top: 10px; display: block; }
             .receipt-title { font-size: 12px; margin-bottom: 5px; line-height: 1.2; }
-            
-            /* 핵심: 청구기호 강조 */
-            .receipt-call-number { 
-                font-size: 16px; 
-                font-weight: 900; 
-                border: 2px solid #000; 
-                padding: 8px; 
-                margin: 10px 0; 
-                text-align: center; 
-                display: block;
-            }
-
+            .receipt-call-number { font-size: 16px; font-weight: 900; border: 2px solid #000; padding: 8px; margin: 10px 0; text-align: center; display: block; }
             .receipt-footer { border-top: 2px dashed #000; padding-top: 10px; font-size: 10px; }
             .barcode-sim { font-family: 'Libre Barcode 39', sans-serif; font-size: 30px; letter-spacing: 5px; margin-top: 5px; }
         }
@@ -165,28 +126,24 @@
     <div id="print-receipt-area">
         <div class="receipt-header">
             <span class="receipt-logo">동의대 도서관</span>
-            <span class="receipt-date" id="printDate">2025-12-07 14:30</span>
+            <span class="receipt-date" id="printDate"></span>
         </div>
         <div class="receipt-body">
             <span class="receipt-label">[도서명]</span>
             <div class="receipt-title">데이터 사이언스 입문</div>
-            
             <span class="receipt-label">[저자]</span>
             <div class="receipt-title">김진, 최정아</div>
-
             <span class="receipt-label" style="text-align:center; margin-top:15px; font-size:12px;">▼ 소장 위치 안내 ▼</span>
-            
             <div class="receipt-call-number">
-                제1열람실<br>
-                305.1-IT과학
+                제1열람실<br>305.1-IT과학
             </div>
         </div>
         <div class="receipt-footer">
-            * 대출 시 이 종이를 지참해주세요.<br>
-            * 문의: 051-890-1234
+            * 대출 시 이 종이를 지참해주세요.<br>* 문의: 051-890-1234
             <div class="barcode-sim">|| | ||| || |||</div>
         </div>
     </div>
+
     <header>
         <div class="container header-inner">
             <a href="index.html" class="logo">
@@ -221,16 +178,55 @@
                     <p><strong>출판사</strong> <span>이지스퍼블리싱</span></p>
                     <p><strong>발행년도</strong> <span>2024</span></p>
                     <p><strong>ISBN</strong> <span>9791196752521</span></p>
-                    <p><strong>소장위치</strong> <span>제1열람실 305.1-IT과학</span> <span style="color:#10ac84; font-weight:700;">(대출가능)</span></p>
                 </div>
                 
                 <div class="action-buttons">
-                    <button class="btn btn-primary">대출 신청</button>
-                    <button class="btn btn-outline">관심도서 담기</button>
+                    <button class="btn btn-primary" onclick="loanBook()">
+                        <i class="fa-solid fa-book-bookmark"></i> 대출하기
+                    </button>
+                    
                     <button class="btn btn-print" onclick="printReceipt()">
                         <i class="fa-solid fa-print"></i> 책위치 출력하기
                     </button>
                 </div>
+            </div>
+
+            <div class="holdings-container">
+                <div class="section-title">소장 정보</div>
+                <table class="holdings-table">
+                    <thead>
+                        <tr>
+                            <th>등록번호</th>
+                            <th>소장위치</th>
+                            <th>청구기호</th>
+                            <th>도서상태</th>
+                            <th>반납예정일</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>9791196752521-1</td>
+                            <td>제1열람실</td>
+                            <td>305.1-IT과학-1</td>
+                            <td><span class="status-badge st-avail">대출가능</span></td>
+                            <td>-</td>
+                        </tr>
+                        <tr>
+                            <td>9791196752521-2</td>
+                            <td>제1열람실</td>
+                            <td>305.1-IT과학-2</td>
+                            <td><span class="status-badge st-loaned">대출중</span></td>
+                            <td>2025-12-20</td>
+                        </tr>
+                        <tr>
+                            <td>9791196752521-3</td>
+                            <td>제2열람실</td>
+                            <td>305.1-IT과학-3</td>
+                            <td><span class="status-badge st-loaned">대출중</span></td>
+                            <td>2025-12-22</td>
+                        </tr>
+                    </tbody>
+                </table>
             </div>
 
             <div class="review-container">
@@ -260,31 +256,21 @@
                         <div class="rev-header">
                             <div class="rev-user">
                                 <i class="fa-solid fa-user-circle" style="color:#ccc;"></i> 
-                                2020*** (학생) <span class="star-rating">
-                                    <i class="fa-solid fa-star filled"></i>
-                                    <i class="fa-solid fa-star filled"></i>
-                                    <i class="fa-solid fa-star filled"></i>
-                                    <i class="fa-solid fa-star filled"></i>
-                                    <i class="fa-solid fa-star filled"></i>
-                                </span>
+                                2020*** (학생) <span class="star-rating"><i class="fa-solid fa-star filled"></i><i class="fa-solid fa-star filled"></i><i class="fa-solid fa-star filled"></i><i class="fa-solid fa-star filled"></i><i class="fa-solid fa-star filled"></i></span>
                             </div>
-                            <span class="rev-date">2024-05-20</span> </div>
-                        <div class="rev-title">비전공자도 이해하기 쉬운 최고의 입문서!</div> <div class="rev-content">
+                            <span class="rev-date">2024-05-20</span> 
+                        </div>
+                        <div class="rev-title">비전공자도 이해하기 쉬운 최고의 입문서!</div> 
+                        <div class="rev-content">
                             데이터 분석이 처음이라 막막했는데, 이 책은 개념 설명이 정말 친절하네요. 실습 예제도 따라하기 좋게 구성되어 있어서 끝까지 완독할 수 있었습니다. 강력 추천합니다!
-                        </div> </div>
+                        </div> 
+                    </div>
 
                     <div class="review-card">
                         <div class="rev-header">
                             <div class="rev-user">
                                 <i class="fa-solid fa-user-circle" style="color:#ccc;"></i> 
-                                2023*** (학생)
-                                <span class="star-rating">
-                                    <i class="fa-solid fa-star filled"></i>
-                                    <i class="fa-solid fa-star filled"></i>
-                                    <i class="fa-solid fa-star filled"></i>
-                                    <i class="fa-solid fa-star filled"></i>
-                                    <i class="fa-solid fa-star"></i>
-                                </span>
+                                2023*** (학생) <span class="star-rating"><i class="fa-solid fa-star filled"></i><i class="fa-solid fa-star filled"></i><i class="fa-solid fa-star filled"></i><i class="fa-solid fa-star filled"></i><i class="fa-solid fa-star"></i></span>
                             </div>
                             <span class="rev-date">2024-04-15</span>
                         </div>
@@ -298,14 +284,7 @@
                         <div class="rev-header">
                             <div class="rev-user">
                                 <i class="fa-solid fa-user-circle" style="color:#ccc;"></i> 
-                                2021*** (학생)
-                                <span class="star-rating">
-                                    <i class="fa-solid fa-star filled"></i>
-                                    <i class="fa-solid fa-star filled"></i>
-                                    <i class="fa-solid fa-star filled"></i>
-                                    <i class="fa-solid fa-star"></i>
-                                    <i class="fa-solid fa-star"></i>
-                                </span>
+                                2021*** (학생) <span class="star-rating"><i class="fa-solid fa-star filled"></i><i class="fa-solid fa-star filled"></i><i class="fa-solid fa-star filled"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i></span>
                             </div>
                             <span class="rev-date">2024-03-02</span>
                         </div>
@@ -322,56 +301,6 @@
 
     <footer>
         <div class="container">
-            <div class="footer-grid">
-                <div class="footer-brand">
-                    <span class="f-logo"><i class="fa-solid fa-book-open"></i> 동의대 도서관</span>
-                    <p>지식과 학습의 중심, 동의대학교 도서관입니다.<br>여러분의 꿈을 응원합니다.</p>
-                    <div class="social-icons">
-                        <a href="#"><i class="fa-brands fa-facebook-f"></i></a>
-                        <a href="#"><i class="fa-brands fa-instagram"></i></a>
-                        <a href="#"><i class="fa-brands fa-youtube"></i></a>
-                    </div>
-                </div>
-
-                <div>
-                    <h4>서비스</h4>
-                    <ul>
-                        <li><a href="#">희망자료 구입</a></li>
-                        <li><a href="#">좌석예약</a></li>
-                        <li><a href="#">대출/연장/예약</a></li>
-                        <li><a href="#">상호대차</a></li>
-                    </ul>
-                </div>
-
-                <div>
-                    <h4>이용안내</h4>
-                    <ul>
-                        <li><a href="#">이용시간</a></li>
-                        <li><a href="#">대출안내</a></li>
-                        <li><a href="#">시설안내</a></li>
-                        <li><a href="#">FAQ</a></li>
-                    </ul>
-                </div>
-
-                <div>
-                    <h4>연락처</h4>
-                    <ul class="contact-info">
-                        <li>
-                            <i class="fa-solid fa-location-dot"></i>
-                            <span>부산광역시 부산진구 엄광로 176</span>
-                        </li>
-                        <li>
-                            <i class="fa-solid fa-phone"></i>
-                            <span>051-890-1234</span>
-                        </li>
-                        <li>
-                            <i class="fa-solid fa-envelope"></i>
-                            <span>library@deu.ac.kr</span>
-                        </li>
-                    </ul>
-                </div>
-            </div>
-
             <div class="copyright">
                 <p>© 2024 Dong-eui University Library. All rights reserved.</p>
             </div>
@@ -380,20 +309,21 @@
 
     <script>
         function printReceipt() {
-            // 1. 현재 시간 업데이트 (영수증에 찍히는 시간)
             const now = new Date();
             const timeString = now.getFullYear() + "-" + 
                                String(now.getMonth()+1).padStart(2, '0') + "-" + 
                                String(now.getDate()).padStart(2, '0') + " " + 
                                String(now.getHours()).padStart(2, '0') + ":" + 
                                String(now.getMinutes()).padStart(2, '0');
-            
             document.getElementById('printDate').innerText = timeString;
-
-            // 2. 브라우저 인쇄 창 호출
             window.print();
         }
-    </script>
 
+        // 대출하기 버튼 동작
+        function loanBook() {
+            // 실제 구현에서는 서버에 대출 요청을 보냅니다.
+            alert("도서 대출 처리가 완료되었습니다.\n반납 예정일: 2025-12-21");
+        }
+    </script>
 </body>
 </html>
