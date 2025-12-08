@@ -1,22 +1,26 @@
 --- 데이터 조회 ---
 -- 전체 도서 대출 현황 조회(최근 12개월)
 SELECT
-    YEAR(loan_date) AS loan_year,
-    MONTH(loan_date) AS loan_month,
-    COUNT(loan_id) AS total_loans
+    YEAR(T1.loan_date) AS loan_year,
+    MONTH(T1.loan_date) AS loan_month,
+    COUNT(T1.loan_id) AS total_loans
 FROM
-    loans
+    loans T1
+JOIN
+    book_copies T2 ON T1.cbk_id = T2.cbk_id
+JOIN
+    books T3 ON T2.bk_id = T3.bk_id
 WHERE
-    loan_date >= DATE_SUB(CURDATE(), INTERVAL 12 MONTH) -- 최근 12개월 데이터 필터링
+    T3.bk_title = '사용자가 검색한 도서명'  -- **검색된 도서명으로 필터링**
+    AND YEAR(T1.loan_date) = YEAR(CURDATE()) -- 현재 연도 데이터만 필터링
 GROUP BY
-    loan_year, loan_month
+    YEAR(T1.loan_date), MONTH(T1.loan_date) WITH ROLLUP
 ORDER BY
     loan_year ASC, loan_month ASC;
 
 -- 도서 대출 순위 조회
 SELECT
     T3.bk_title AS 서명,
-    T3.bk_auth AS 저자,
     COUNT(T1.loan_id) AS total_loan_count
 FROM
     loans T1
@@ -25,47 +29,27 @@ JOIN
 JOIN
     books T3 ON T2.bk_id = T3.bk_id
 GROUP BY
-    T3.bk_id, T3.bk_title, T3.bk_auth
+    T3.bk_id, T3.bk_title
 ORDER BY
     total_loan_count DESC
-LIMIT 10; -- 예시: Top 10 도서 조회
+LIMIT 5; -- 예시: Top 5 도서 조회
 
--- 특정 도서 상세 통계 조회
--- 도서 기본 정보 조회
+-- 주제별 대출 비율
 SELECT
-    bk_title,
-    bk_auth,
-    bk_pub
-FROM
-    books
-WHERE
-    bk_id = '검색된_도서_ID';
-
--- 특정 도서의 최근 6개월 월별 대출 횟수 조회 (monthly_book_stats 테이블 사용)
-SELECT
-    stat_month,
-    loan_cnt
-FROM
-    monthly_book_stats
-WHERE
-    bk_id = '검색된_도서_ID'
-    AND stat_year * 100 + stat_month >= (YEAR(CURDATE()) * 100 + MONTH(CURDATE())) - 6 -- 최근 6개월
-ORDER BY
-    stat_year ASC, stat_month ASC;
-
--- 전체 도서 건수 및 검색 도서의 총 대출 건수/순위 조회
--- 전체 도서의 총 대출 건수 조회 (순위 계산에 사용)
-SELECT COUNT(loan_id) AS overall_total_loans FROM loans;
-
--- 특정 도서의 총 대출 건수 조회
-SELECT
-    COUNT(T1.loan_id) AS total_loan_count_for_book
+    T4.gnr_name AS genre_name,
+    COUNT(T1.loan_id) AS total_loan_count 
 FROM
     loans T1
 JOIN
     book_copies T2 ON T1.cbk_id = T2.cbk_id
-WHERE
-    T2.bk_id = '검색된_도서_ID';
+JOIN
+    books T3 ON T2.bk_id = T3.bk_id            
+JOIN
+    genres T4 ON T3.gnr_id = T4.gnr_id         
+GROUP BY
+    T4.gnr_name                                  
+ORDER BY
+    total_loan_count DESC;
 
 --- 인덱스 생성 ---
 -- 월별/기간별 대출 집계 속도 향상을 위한 인덱스
@@ -73,12 +57,10 @@ CREATE INDEX idx_loans_date
 ON loans (loan_date);
 
 -- 도서 순위 계산을 위한 조인 조건 최적화 
-CREATE INDEX idx_loans_cbk_id
-ON loans (cbk_id);
+CREATE INDEX idx_loans_cbk_id ON loans (cbk_id);
 
-CREATE INDEX idx_copies_bk_id
-ON book_copies (bk_id);
+CREATE INDEX idx_copies_bk_id ON book_copies (bk_id);
 
 -- 특정 도서의 월별 통계 조회 가속화
-CREATE INDEX idx_monthly_stats_bk_id_ym
+CREATE INDEX idx_monthly_stats_bk_id_ym 
 ON monthly_book_stats (bk_id, stat_year, stat_month);
