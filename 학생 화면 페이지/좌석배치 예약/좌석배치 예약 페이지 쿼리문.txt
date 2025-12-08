@@ -1,0 +1,182 @@
+-- 특정 열람실 (예: loc_id=1)의 전체 좌석 목록 및 현재 사용 상태 조회
+SELECT
+    s.seat_id,
+    s.seat_num,
+    s.seat_stat,
+    s.usr_id       -- 현재 사용자의 ID (NULL이면 빈 좌석)
+FROM
+    seats s
+JOIN
+    locations l ON s.loc_id = l.loc_id
+WHERE
+    l.loc_id = 1; -- loc_id는 '제1열람실'에 해당하는 ID로 가정
+
+-- 열람실 통계 (총 좌석, 사용 중, 잔여 좌석) 계산
+SELECT
+    COUNT(*) AS total_seats,
+    SUM(CASE WHEN seat_stat = 'occupied' THEN 1 ELSE 0 END) AS occupied_seats,
+    SUM(CASE WHEN seat_stat = 'available' THEN 1 ELSE 0 END) AS available_seats
+FROM
+    seats
+WHERE
+    loc_id = 1;
+
+-- 현재 로그인 사용자 정보 조회 (예약 확정 시 필요한 usr_id)
+SELECT
+    usr_id,
+    usr_name
+FROM
+    users
+WHERE
+    usr_id = '로그인한_사용자_ID';
+
+--- 좌석 상태 업데이트 ---
+-- 좌석 예약 확정 (좌석 상태 변경)
+UPDATE
+    seats
+SET
+    seat_stat = 'occupied',
+    usr_id = '로그인한_사용자_ID',
+    start_time = NOW()
+WHERE
+    seat_id = '선택된_좌석_ID' 
+    AND seat_stat = 'available'; -- 이 조건으로 동시 예약 방지
+
+-- (사용자가 퇴실할 경우) 좌석 반납
+UPDATE
+    seats
+SET
+    seat_stat = 'available',
+    usr_id = NULL,
+    start_time = NULL
+WHERE
+    usr_id = '로그인한_사용자_ID';
+
+--- 출입 기록 삽입 ---
+-- 좌석 이용 시작 기록 (Entry Log)
+INSERT INTO entry_logs (
+    usr_id, 
+    log_type, 
+    log_time, 
+    log_varchar
+)
+VALUES (
+    '로그인한_사용자_ID', 
+    'SEAT_IN', 
+    NOW(), 
+    'seat_id: 선택된_좌석_ID' -- 좌석 ID 또는 번호를 추가 정보로 기록
+);
+
+-- (사용자가 퇴실할 경우) 좌석 이용 종료 기록
+INSERT INTO entry_logs (
+    usr_id, 
+    log_type, 
+    log_time, 
+    log_varchar
+)
+VALUES (
+    '로그인한_사용자_ID', 
+    'SEAT_OUT', 
+    NOW(), 
+    'seat_id: 반납된_좌석_ID'
+);
+
+-- 3-1. 사용자별 좌석 사용 현황 조회를 위한 인덱스
+CREATE INDEX idx_seats_usr_id 
+ON seats (usr_id);
+
+-- 3-2. 좌석 상태별 필터링 (잔여 좌석 검색) 최적화를 위한 인덱스
+CREATE INDEX idx_seats_stat 
+ON seats (seat_stat);
+
+-- 3-3. 위치(열람실)별 좌석 목록 조회를 위한 인덱스
+CREATE INDEX idx_seats_loc_id 
+ON seats (loc_id);
+--------------------------------------------------------
+
+SELECT
+    seat_id,
+    seat_num,
+    seat_stat   -- '사용가능', '사용중' 등 한글 값
+FROM
+    seats
+WHERE
+    seat_room = '제1열람실'; 
+
+
+-- 1-2. 열람실 통계 (총 좌석, 사용 중, 잔여 좌석)
+-- 변경점: ENUM 값 한글화 ('occupied' -> '사용중')
+SELECT
+    COUNT(*) AS total_seats,
+    SUM(CASE WHEN seat_stat = '사용중' THEN 1 ELSE 0 END) AS occupied_seats,
+    SUM(CASE WHEN seat_stat = '사용가능' THEN 1 ELSE 0 END) AS available_seats
+FROM
+    seats
+WHERE
+    seat_room = '제1열람실';
+
+-- ----------------------------------------------------------
+-- 2. [예약 확정] 입실 트랜잭션 (START ~ COMMIT)
+-- 설명: 좌석을 선점하고, 이력을 남기는 과정이 한 몸처럼 움직여야 함
+-- ----------------------------------------------------------
+
+START TRANSACTION;
+
+    -- [Step 1] 좌석 선점 (상태 변경)
+    -- 중요: 'seat_stat = 사용가능' 조건으로 동시성 제어
+    UPDATE seats 
+    SET seat_stat = '사용중' 
+    WHERE seat_id = ?              -- 사용자가 선택한 좌석 ID
+      AND seat_stat = '사용가능';   -- ★ 아주 중요: 이미 누가 채갔으면 여기서 실패함
+
+    -- [체크 포인트] 백엔드 개발 시 주의사항:
+    -- 위 UPDATE 문의 결과(Affected Rows)가 0이면 -> 누군가 먼저 예약한 것임 -> ROLLBACK 하고 종료!
+    -- 위 UPDATE 문의 결과가 1이면 -> Step 2 진행
+
+    -- [Step 2] 예약 이력 생성
+    INSERT INTO seat_reservations (
+        seat_id, 
+        usr_id, 
+        res_start, 
+        res_stat
+    ) VALUES (
+        ?,             -- 위에서 선택한 좌석 ID
+        '20233849',    -- 사용자 ID
+        NOW(), 
+        '이용중'
+    );
+
+COMMIT; -- 둘 다 성공했을 때만 저장
+
+
+-- ----------------------------------------------------------
+-- 3. [좌석 반납] 퇴실 트랜잭션 (START ~ COMMIT)
+-- 설명: 이용 기록을 닫고, 좌석을 다시 풀어주는 과정
+-- ----------------------------------------------------------
+
+START TRANSACTION;
+
+    -- [Step 1] 내 예약 기록 종료 ('이용중' -> '반납완료')
+    UPDATE seat_reservations 
+    SET res_end = NOW(), 
+        res_stat = '반납완료'
+    WHERE usr_id = '20233849' 
+      AND res_stat = '이용중';
+
+    -- [Step 2] 물리적 좌석 상태 원상복구 ('사용중' -> '사용가능')
+    -- 서브쿼리로 방금 반납한(가장 최근) 좌석 ID를 찾아서 업데이트
+    UPDATE seats 
+    SET seat_stat = '사용가능'
+    WHERE seat_id = (
+        SELECT seat_id 
+        FROM seat_reservations 
+        WHERE usr_id = '20233849' 
+          AND res_stat = '반납완료' 
+        ORDER BY res_end DESC 
+        LIMIT 1
+    );
+
+COMMIT; -- 완료 저장
+
+
+

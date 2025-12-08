@@ -1,0 +1,254 @@
+-- 도서 상세 메타데이터 조회 (서명, 저자, 출판사, ISBN 등)
+SELECT
+    T1.bk_title,
+    T1.bk_auth,
+    T1.bk_pub,
+    T1.bk_year,
+    T1.bk_isbn,
+    T2.gnr_name AS subject
+FROM
+    books T1
+LEFT JOIN
+    genres T2 ON T1.gnr_id = T2.gnr_id
+WHERE
+    T1.bk_id = '선택된_도서_ID';
+
+
+-- 복본별 소장 현황 및 대출 상태 조회
+SELECT
+    T1.cbk_id AS 등록번호,
+    T2.loc_name AS 소장처,
+    T1.bk_id AS 청구기호,
+    T1.cbk_stat AS 복본상태,
+    T3.loan_due AS 반납예정일
+FROM
+    book_copies T1
+JOIN
+    locations T2 ON T1.loc_id = T2.loc_id
+LEFT JOIN
+    loans T3 ON T1.cbk_id = T3.cbk_id AND T3.loan_ext = FALSE -- 현재 대출 중인 경우의 반납예정일
+WHERE
+    T1.bk_id = '선택된_도서_ID';
+
+
+-- 도서의 현재 총 예약 건수 조회
+SELECT
+    COUNT(resv_id) AS reservation_count
+FROM
+    reservations
+WHERE
+    bk_id = '선택된_도서_ID'
+    AND resv_stat = '대기중';
+
+-- 이용자 평균 평점 및 리뷰 개수 조회
+SELECT
+    AVG(rev_rate) AS avg_rating,
+    COUNT(rev_id) AS total_reviews
+FROM
+    book_reviews
+WHERE
+    bk_id = '선택된_도서_ID';
+
+
+
+-- 리뷰 목록 조회 (최신순)
+SELECT
+    T1.rev_title,
+    T1.rev_rate,
+    T1.rev_content,
+    T2.usr_name AS reviewer_name,
+    T1.rev_date
+FROM
+    book_reviews T1
+JOIN
+    users T2 ON T1.usr_id = T2.usr_id
+WHERE
+    T1.bk_id = '선택된_도서_ID'
+ORDER BY
+    T1.rev_date DESC;
+
+
+
+--- 데이터 삽입 ---
+-- 도서 예약 등록
+INSERT INTO reservations (
+    bk_id,
+    usr_id,
+    resv_date,
+    resv_seq, -- 예약 순서는 기존 예약 건수를 +1 하여 부여 (별도 로직 필요)
+    resv_stat
+)
+VALUES (
+    '선택된_도서_ID',
+    '로그인한_사용자_ID',
+    NOW(),
+    (SELECT COUNT(*) FROM reservations WHERE bk_id = '선택된_도서_ID') + 1,
+    '대기중'
+);
+
+-- 리뷰 등록 (평점 및 내용)
+INSERT INTO book_reviews (
+    bk_id,
+    usr_id,
+    rev_title,
+    rev_rate,
+    rev_content,
+    rev_date
+)
+VALUES (
+    '선택된_도서_ID',
+    '로그인한_사용자_ID',
+    '리뷰 제목',
+    5, -- 평점 (1~5)
+    '리뷰 내용',
+    NOW()
+);
+
+--- 인덱스 ---
+-- 도서 ID를 통한 복본(book_copies) 조회 최적화
+CREATE INDEX idx_copies_bk_id
+ON book_copies (bk_id);
+
+-- 도서 ID별 예약 목록 조회 및 건수 계산 최적화
+CREATE INDEX idx_reservations_bk_id
+ON reservations (bk_id, resv_stat); -- 복합 인덱스로 상태 필터링 가속
+
+-- 도서 ID별 리뷰 목록 조회 및 정렬 최적화
+CREATE INDEX idx_reviews_bk_id_date
+ON book_reviews (bk_id, rev_date DESC);
+
+
+
+--------------------------------------------------------------------------
+
+-- 1-1. 도서 상세 메타데이터 조회
+SELECT
+    T1.bk_title,
+    T1.bk_auth,
+    T1.bk_pub,
+    T1.bk_year,
+    T1.bk_isbn,
+    T2.gnr_name AS subject
+FROM
+    books T1
+LEFT JOIN
+    genres T2 ON T1.gnr_id = T2.gnr_id
+WHERE
+    T1.bk_id = '선택된_도서_ID'; -- 예: 9791196752521
+
+
+
+
+-- 1-2. 복본별 소장 현황 및 대출 상태 조회 (수정 완료)
+-- 1-2. 복본별 소장 현황 및 반납 예정일 조회
+SELECT
+    T1.cbk_id     AS 등록번호,      -- (예: 9791196752521-1)
+    T2.loc_name   AS 소장처,        -- (예: 제1열람실)
+    T2.loc_class  AS 청구기호,      -- (예: 305.1-IT과학)
+    T1.cbk_stat   AS 복본상태,      -- (예: 대출가능, 대출중)
+    T3.loan_due   AS 반납예정일     -- (대출중이면 날짜, 아니면 NULL)
+FROM
+    book_copies T1
+JOIN
+    locations T2 ON T1.loc_id = T2.loc_id
+LEFT JOIN
+    loans T3 ON T1.cbk_id = T3.cbk_id AND T3.loan_ret IS NULL
+WHERE
+    T1.bk_id = '선택된_도서_ID'
+ORDER BY
+    T1.cbk_vol ASC;
+
+
+
+-- 1-3. 리뷰 목록 조회 (최신순)
+SELECT
+    T1.rev_title,
+    T1.rev_rate,
+    T1.rev_content,
+    T2.usr_name AS reviewer_name,
+    T1.rev_date
+FROM
+    book_reviews T1
+JOIN
+    users T2 ON T1.usr_id = T2.usr_id
+WHERE
+    T1.bk_id = '선택된_도서_ID'
+ORDER BY
+    T1.rev_date DESC;
+
+
+-- 1-4. 버튼 활성화 상태 결정
+SELECT COUNT(*) AS avail_count
+FROM book_copies
+WHERE bk_id = '선택된_도서_ID' 
+  AND cbk_stat = '대출가능';
+
+
+-- ---------------------------------------------------------
+-- 2. 기능 동작 (INSERT / UPDATE)
+-- ---------------------------------------------------------
+
+-- 2-1. 도서 대출 등록 ('대출하기' 버튼)
+-- 트랜젝션 추가
+START TRANSACTION;
+
+    INSERT INTO loans (
+        cbk_id, usr_id, loan_date, loan_due, loan_ret, loan_ext
+    ) VALUES (
+        '선택된_복본_ID',       -- 바코드 (예: 9791196752521-1)
+        '로그인한_사용자_ID',
+        CURDATE(),
+        DATE_ADD(CURDATE(), INTERVAL 7 DAY),
+        NULL,
+        FALSE
+    );
+
+    UPDATE book_copies 
+    SET cbk_stat = '대출중' 
+    WHERE cbk_id = '선택된_복본_ID';
+
+COMMIT;
+
+
+-- 2-2. 도서 예약 등록 ('예약하기' 버튼)
+INSERT INTO reservations (
+    bk_id, usr_id, resv_date, resv_seq, resv_stat
+)
+SELECT 
+    '선택된_도서_ID',
+    '로그인한_사용자_ID',
+    NOW(),
+    IFNULL(MAX(resv_seq), 0) + 1,
+    '대기중'
+FROM 
+    reservations 
+WHERE 
+    bk_id = '선택된_도서_ID';
+
+
+-- 2-3. 리뷰 등록
+INSERT INTO book_reviews (
+    bk_id, usr_id, rev_title, rev_rate, rev_content, rev_date
+) VALUES (
+    '선택된_도서_ID', 
+    '로그인한_사용자_ID', 
+    '리뷰 제목', 
+    5, 
+    '리뷰 내용', 
+    NOW()
+);
+
+--- 인덱스 (INDEX) ---
+
+-- 도서 ID를 통한 복본 조회 최적화
+CREATE INDEX idx_copies_bk_id ON book_copies (bk_id);
+
+-- 도서 ID별 예약 목록 조회 최적화
+CREATE INDEX idx_reservations_bk_id ON reservations (bk_id, resv_stat);
+
+-- 도서 ID별 리뷰 목록 최신순 정렬 최적화
+CREATE INDEX idx_reviews_bk_id_date ON book_reviews (bk_id, rev_date DESC);
+
+-- [추가 추천] 대출 중인 책(반납일 NULL) 조회 속도 향상
+CREATE INDEX idx_loans_cbk_ret ON loans (cbk_id, loan_ret);
+

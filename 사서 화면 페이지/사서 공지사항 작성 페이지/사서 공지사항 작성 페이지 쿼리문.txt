@@ -1,0 +1,25 @@
+--- 데이터 조회 ---
+-- 작성자 정보 조회
+SELECT
+    lib_name
+FROM
+    librarians
+WHERE
+    lib_id = '로그인한_사서_ID';
+
+-- 작성일 자동 채움을 위한 현재 시각 조회
+SELECT
+    NOW();
+
+--- 인덱스 생성 ---
+-- 공지사항 목록 및 메인 화면 최신순 조회를 위한 복합 인덱스
+CREATE INDEX idx_notices_date_desc
+ON notices (ntc_date DESC, ntc_id DESC);
+
+-- 제목 검색 최적화를 위한 인덱스
+CREATE INDEX idx_notices_title
+ON notices (ntc_title);
+
+-- 공지 상태별 필터링을 위한 인덱스 ('게시중'인 공지 필터링)
+CREATE INDEX idx_notices_stat
+ON notices (ntc_stat);

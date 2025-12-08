@@ -1,0 +1,45 @@
+--- 데이터 조회 ---
+-- 구매 신청 조회
+SELECT
+    T1.req_id AS 신청_No,
+    T1.req_date AS 신청일자,
+    T2.usr_name AS 신청자_이름,
+    T2.usr_id AS 신청자_ID,
+    T2.usr_dept AS 소속학과,
+    T1.req_title AS 서명,
+    T1.req_auth AS 저자,
+    T1.req_pub AS 출판사,
+    T1.req_isbn AS ISBN,
+    T1.req_stat AS 처리_상태,
+    T1.req_note AS 처리_비고
+FROM
+    book_requests T1 -- 희망도서 신청 테이블을 book_requests라고 가정
+JOIN
+    users T2 ON T1.usr_id = T2.usr_id
+WHERE
+    T1.req_stat IN ('신청완료', '승인 완료', '반려') -- 모든 상태를 조회하거나
+    -- T1.req_stat = '신청완료' -- [필터] 처리 대기 중인 건만 조회
+    -- AND T1.req_title LIKE '%검색어%' -- [검색] 도서명 검색
+ORDER BY
+    T1.req_date ASC;
+
+-- 처리 대기중인 신청 건수
+SELECT
+    COUNT(*) AS pending_request_count
+FROM
+    book_requests
+WHERE
+    req_stat = '신청완료';
+
+--- 인덱스 생성 ---
+-- 신청 상태별 필터링 및 신청일 정렬을 위한 핵심 복합 인덱스
+CREATE INDEX idx_req_stat_date
+ON book_requests (req_stat, req_date ASC);
+
+-- 도서명 검색 최적화를 위한 인덱스
+CREATE INDEX idx_req_title
+ON book_requests (req_title);
+
+-- 사용자 ID를 통한 조인 최적화를 위한 인덱스
+CREATE INDEX idx_req_usr_id
+ON book_requests (usr_id);

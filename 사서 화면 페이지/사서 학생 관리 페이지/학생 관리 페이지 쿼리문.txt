@@ -1,0 +1,79 @@
+--- 데이터 조회 ---
+-- 전체 이용자 목록 조회 및 현황 조회
+SELECT
+    T1.usr_id AS 학번_사번,
+    T1.usr_name AS 이름,
+    T1.usr_dept AS 소속,
+    T1.usr_tel AS 연락처,
+    T1.usr_stat AS 신분_상태,
+    T1.usr_enrl AS 등록_상태, -- 재학/휴학/졸업 등
+    -- 현재 대출 중인 도서 수 계산
+    COUNT(T2.loan_id) AS current_loan_count,
+    -- 현재 연체 중인 도서 수 계산
+    SUM(CASE WHEN T2.loan_ret IS NULL AND T2.loan_due < CURDATE() THEN 1 ELSE 0 END) AS overdue_count,
+    -- 현재 유효한 패널티 상태 여부 확인 (최신 종료일 기준)
+    MAX(CASE
+        WHEN T3.pen_end >= CURDATE() AND T3.pen_status = '적용 중' THEN '제재 중'
+        ELSE '정상'
+    END) AS sanction_status,
+    -- 최종 대출일 조회
+    MAX(T2.loan_date) AS latest_loan_date
+FROM
+    users T1
+LEFT JOIN
+    loans T2 ON T1.usr_id = T2.usr_id AND T2.loan_ret IS NULL -- 현재 대출 중인 건만 조인
+LEFT JOIN
+    penalties T3 ON T1.usr_id = T3.usr_id -- 패널티 기록 조인
+WHERE
+    T1.usr_enrl = '재학' -- [필터] 재학생만 기본 조회
+    -- AND T1.usr_name LIKE '%검색어%' -- [검색] 사용자 이름 검색
+GROUP BY
+    T1.usr_id, T1.usr_name, T1.usr_dept, T1.usr_tel, T1.usr_stat, T1.usr_enrl
+ORDER BY
+    T1.usr_id ASC;
+
+-- 총 회원수, 대출/연체/정지 중 회원수 조회
+-- CTE: 각 사용자(usr_id)별 현재 대출/연체/제재 상태를 0 또는 1로 계산
+WITH UserStatus AS (
+    SELECT
+        T1.usr_id,
+        -- 1. 대출 중인 도서가 하나라도 있는지 여부
+        MAX(CASE WHEN L.loan_ret IS NULL THEN 1 ELSE 0 END) AS HasActiveLoan,
+        -- 2. 연체 중인 도서가 하나라도 있는지 여부
+        MAX(CASE WHEN L.loan_ret IS NULL AND L.loan_due < CURDATE() THEN 1 ELSE 0 END) AS HasOverdueLoan,
+        -- 3. 현재 유효한 제재가 하나라도 있는지 여부
+        MAX(CASE WHEN P.pen_end >= CURDATE() AND P.pen_status = '적용 중' THEN 1 ELSE 0 END) AS IsSanctioned
+    FROM
+        users T1
+    LEFT JOIN
+        loans L ON T1.usr_id = L.usr_id
+    LEFT JOIN
+        penalties P ON T1.usr_id = P.usr_id
+    GROUP BY
+        T1.usr_id
+)
+-- 최종 결과 집계
+SELECT
+    (SELECT COUNT(usr_id) FROM users) AS 총_회원수, -- users 테이블의 전체 레코드 수
+    SUM(HasActiveLoan) AS 대출_중_회원수,
+    SUM(HasOverdueLoan) AS 연체_중_회원수,
+    SUM(IsSanctioned) AS 대출_정지_회원수
+FROM
+    UserStatus;
+
+--- 인덱스 생성 ---
+-- 사용자 ID 검색 및 조인 최적화 (가장 중요한 인덱스)
+CREATE INDEX idx_users_id
+ON users (usr_id);
+
+-- 사용자 이름 검색을 위한 인덱스
+CREATE INDEX idx_users_name
+ON users (usr_name);
+
+-- 대출/연체 상태 확인을 위한 핵심 인덱스
+CREATE INDEX idx_loans_user_ret_due
+ON loans (usr_id, loan_ret, loan_due);
+
+-- 패널티 유효성 검사를 위한 인덱스
+CREATE INDEX idx_penalties_user_end_status
+ON penalties (usr_id, pen_end, pen_status);

@@ -1,0 +1,44 @@
+--- 데이터 조회 ---
+-- 특정 희망자료 신청의 상세 정보 조회
+SELECT
+    req_id AS 신청번호,
+    usr_id AS 신청자ID,
+    req_title AS 서명,
+    req_auth AS 저자,
+    req_pub AS 출판사,
+    req_pub_year AS 발행연도,
+    req_isbn AS ISBN,
+    req_date AS 신청일,
+    req_stat AS 처리상태,
+
+FROM
+    requests
+WHERE
+    req_id = '조회할_신청_ID'
+    AND usr_id = '로그인한_사용자_ID'; 
+
+--- 데이터 업데이트 ---
+-- 신청 자료 취소
+UPDATE
+    requests
+SET
+    req_stat = '신청취소',
+    req_note = CONCAT(IFNULL(req_note, ''), ' / ', '사용자 취소:', NOW())
+WHERE
+    req_id = '취소할_신청_ID'
+    AND usr_id = '로그인한_사용자_ID'
+    AND req_stat IN ('접수대기', '심사중'); -- 예시: 특정 상태에서만 취소 가능
+
+-- 신청 자료 삭제
+-- DELETE는 일반적으로 피하지만, 필요하다면:
+DELETE FROM
+    requests
+WHERE
+    req_id = '삭제할_신청_ID'
+    AND usr_id = '로그인한_사용자_ID'
+    AND req_stat = '접수대기'; -- 예시: 접수대기 상태의 건만 삭제 허용
+
+--- 인덱스 생성 ---
+-- 사용자 ID별 신청 건을 빠르게 찾는 인덱스
+CREATE INDEX idx_requests_usr_id
+ON requests (usr_id);

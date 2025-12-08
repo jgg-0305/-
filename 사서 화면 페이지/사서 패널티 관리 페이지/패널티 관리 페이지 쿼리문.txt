@@ -1,0 +1,58 @@
+--- 데이터 조회 ---
+-- 특정 사용자의 현재 제재 현황 및 누적 패널티 일수 조회
+SELECT
+    T1.usr_id AS 사용자_ID,
+    T1.usr_name AS 사용자_이름,
+    T1.usr_dept AS 소속학과,
+    -- 누적된 제재 일수 합계 계산 (종료일 - 시작일)
+    SUM(TIMESTAMPDIFF(DAY, T2.pen_start, T2.pen_end)) AS total_sanction_days,
+    -- 현재 유효한 제재가 있는지 확인
+    MAX(CASE
+        WHEN T2.pen_end >= CURDATE() AND T2.pen_status = '적용 중' THEN '적용 중'
+        ELSE '제재 없음'
+    END) AS current_sanction_status,
+    -- 현재 적용 중인 제재 중 가장 늦은 종료일
+    MAX(CASE WHEN T2.pen_end >= CURDATE() THEN T2.pen_end ELSE NULL END) AS current_sanction_end_date
+FROM
+    users T1
+LEFT JOIN
+    penalties T2 ON T1.usr_id = T2.usr_id
+WHERE
+    T1.usr_id = '검색할_사용자_ID' -- 또는 T1.usr_name = '검색할_사용자_이름'
+GROUP BY
+    T1.usr_id, T1.usr_name, T1.usr_dept;
+
+-- 해당 사용자 패널티 이력 조회
+SELECT
+    pen_id AS No,
+    pen_type AS 제재_유형,
+    pen_reason AS 상세_사유,
+    pen_start AS 제재_시작일,
+    pen_end AS 제재_종료일,
+    CASE
+        WHEN pen_end >= CURDATE() AND pen_status = '적용 중' THEN '적용 중'
+        ELSE '종료됨'
+    END AS 상태
+FROM
+    penalties
+WHERE
+    usr_id = '검색된_사용자_ID'
+ORDER BY
+    pen_start DESC;
+
+--- 인덱스 생성 ---
+-- 사용자 ID로 패널티 기록 조회를 위한 핵심 인덱스
+CREATE INDEX idx_penalties_usr_id
+ON penalties (usr_id);
+
+-- 제재 종료일 기준 상태 확인(유효/종료됨)을 위한 인덱스
+CREATE INDEX idx_penalties_end
+ON penalties (pen_end DESC);
+
+-- 제재 상태별 필터링을 위한 인덱스
+CREATE INDEX idx_penalties_status
+ON penalties (pen_status);
+
+-- 사용자 이름으로 검색할 경우를 위한 users 테이블 인덱스
+CREATE INDEX idx_users_name
+ON users (usr_name);

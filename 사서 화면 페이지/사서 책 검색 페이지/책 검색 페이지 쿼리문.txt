@@ -1,0 +1,80 @@
+--- 데이터 조회 ---
+-- 도서 목록 조회
+SELECT
+    T1.bk_id AS 도서_ID,
+    T1.bk_title AS 서명,
+    T1.bk_auth AS 저자,
+    T1.bk_pub AS 출판사,
+    T1.bk_isbn AS ISBN,
+    T1.bk_call_no AS 청구기호,
+    COUNT(T2.cbk_id) AS 총_복본_수,
+    SUM(CASE WHEN T2.cbk_stat = 'available' THEN 1 ELSE 0 END) AS 가용_복본_수 -- 대출 가능한 상태의 복본 수
+FROM
+    books T1
+LEFT JOIN
+    book_copies T2 ON T1.bk_id = T2.bk_id
+WHERE
+    T1.bk_title LIKE '%검색어%' -- [검색 조건] 서명 검색
+    -- OR T1.bk_auth LIKE '%검색어%' -- [검색 조건] 저자 검색
+    -- OR T1.bk_isbn = 'ISBN_번호' -- [검색 조건] ISBN 정확히 일치 검색
+GROUP BY
+    T1.bk_id, T1.bk_title, T1.bk_auth, T1.bk_pub, T1.bk_isbn, T1.bk_call_no
+ORDER BY
+    T1.bk_title ASC
+LIMIT 50; -- 목록 표시를 위해 50개 제한
+
+-- 상세 목록 조회
+SELECT
+    T1.cbk_id AS 복본_ID,
+    T1.cbk_reg_no AS 등록번호, -- 복본 등록번호
+    T1.cbk_call_no AS 청구기호,
+    T1.cbk_stat AS 현재_상태, -- available, loaned, reserved, lost 등
+    T2.loc_name AS 현재_위치_열람실,
+    -- 현재 대출 정보 (대출 중일 경우에만 표시)
+    T3.loan_due AS 반납_예정일,
+    T4.usr_name AS 대출자_이름,
+    T4.usr_id AS 대출자_ID,
+    -- 현재 예약 정보 (예약 중일 경우에만 표시)
+    (SELECT GROUP_CONCAT(T5.usr_name ORDER BY T5.res_rank ASC SEPARATOR ', ')
+     FROM reserves T5
+     JOIN users U ON T5.usr_id = U.usr_id
+     WHERE T5.cbk_id = T1.cbk_id
+    ) AS 예약자_목록
+FROM
+    book_copies T1
+LEFT JOIN
+    locations T2 ON T1.loc_id = T2.loc_id
+LEFT JOIN
+    loans T3 ON T1.cbk_id = T3.cbk_id AND T3.loan_ret IS NULL -- 현재 대출 중인 건만 조인
+LEFT JOIN
+    users T4 ON T3.usr_id = T4.usr_id
+WHERE
+    T1.bk_id = '선택된_도서_ID'
+ORDER BY
+    T1.cbk_id ASC;
+
+--- 인덱스 생성 ---
+-- 도서 검색 조건 최적화 (제목/저자/ISBN)
+CREATE INDEX idx_books_title
+ON books (bk_title);
+
+CREATE INDEX idx_books_auth
+ON books (bk_auth);
+
+CREATE INDEX idx_books_isbn
+ON books (bk_isbn);
+
+-- 복본 상태 조회 및 도서-복본 조인을 위한 인덱스
+CREATE INDEX idx_copies_book_id_status
+ON book_copies (bk_id, cbk_stat);
+
+-- 복본 등록번호(cbk_reg_no) 또는 청구기호(cbk_call_no)로 검색하는 경우를 위한 인덱스
+CREATE INDEX idx_copies_reg_no
+ON book_copies (cbk_reg_no);
+
+-- 대출 및 예약 조인 최적화
+CREATE INDEX idx_loans_cbk_id
+ON loans (cbk_id, loan_ret);
+
+CREATE INDEX idx_reserves_cbk_id
+ON reserves (cbk_id);

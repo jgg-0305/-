@@ -1,0 +1,44 @@
+--- 데이터 조회 ---
+-- 상호대차 신청 목록 조회
+SELECT
+    T1.ill_id AS No,
+    T1.ill_req_date AS 신청일시,
+    T2.usr_name AS 신청자_이름,
+    T2.usr_id AS 신청자_ID,
+    T2.usr_dept AS 소속학과,
+    T1.ill_title AS 서명,
+    T1.ill_auth AS 저자,
+    T1.ill_target_lib AS 대상_도서관, -- ERD에 target_lib 컬럼이 있다고 가정
+    T1.ill_stat AS 처리_상태,
+    T1.ill_note AS 비고_처리내용
+FROM
+    inter_library_loans T1
+JOIN
+    users T2 ON T1.usr_id = T2.usr_id
+WHERE
+    T1.ill_stat = '신청완료' -- [필터] 사서의 처리를 기다리는 상태 (기본값)
+    -- AND T2.usr_name LIKE '%검색어%' -- [검색] 사용자 이름 검색
+    -- AND T1.ill_title LIKE '%검색어%' -- [검색] 도서명 검색
+ORDER BY
+    T1.ill_req_date ASC; -- 신청일이 빠른 순서대로 처리
+
+-- 처리 대기중인 신청 건수 조회
+SELECT
+    COUNT(*) AS pending_ill_count
+FROM
+    inter_library_loans
+WHERE
+    ill_stat = '신청완료';
+
+--- 인덱스 생성 ---
+-- 신청 상태별 필터링 및 날짜순 정렬을 위한 핵심 복합 인덱스
+CREATE INDEX idx_ill_stat_date
+ON inter_library_loans (ill_stat, ill_req_date ASC);
+
+-- 사용자 ID를 통한 조인 및 검색 최적화를 위한 인덱스
+CREATE INDEX idx_ill_usr_id
+ON inter_library_loans (usr_id);
+
+-- 도서명 검색(LIKE 검색)의 성능을 향상시키기 위한 인덱스
+CREATE INDEX idx_ill_title
+ON inter_library_loans (ill_title);

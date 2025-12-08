@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>공지사항 - 동의대 도서관</title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        /* --- 공통 변수 --- */
+        :root {
+            --primary-blue: #2552e3;
+            --bg-gray: #f8f9fa;
+            --text-dark: #333;
+            --text-light: #666;
+            --border-color: #ddd;
+            --accent-red: #e74c3c;
+            --table-header: #f1f3f5;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Noto Sans KR', sans-serif; background-color: var(--bg-gray); color: var(--text-dark); }
+        a { text-decoration: none; color: inherit; }
+        ul { list-style: none; }
+        
+        .container { max-width: 1200px; margin: 0 auto; padding: 0 20px; }
+
+        /* --- 헤더 (학생용 공통 헤더 사용) --- */
+        header { background: #fff; padding: 15px 0; border-bottom: 1px solid #ddd; }
+        .header-inner { display: flex; justify-content: space-between; align-items: center; }
+        .logo { font-size: 24px; font-weight: 700; color: var(--primary-blue); display: flex; align-items: center; gap: 10px; }
+        .nav ul { display: flex; gap: 30px; font-weight: 500; }
+        .login-btn { background: var(--primary-blue); color: #fff; padding: 8px 20px; border-radius: 5px; font-weight: 500; }
+
+        /* --- 메인 컨텐츠 --- */
+        .page-container { padding: 50px 0; background: #fff; min-height: 800px; }
+        
+        .page-header { text-align: center; margin-bottom: 50px; }
+        .page-title { font-size: 32px; font-weight: 700; margin-bottom: 10px; color: #222; }
+        .page-desc { font-size: 16px; color: #888; }
+
+        /* 검색 및 필터 바 */
+        .board-toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .total-count { font-size: 14px; color: #666; font-weight: 500; }
+        .total-count b { color: var(--primary-blue); }
+
+        .search-box { display: flex; gap: 5px; }
+        .form-select { padding: 8px; border: 1px solid #ddd; border-radius: 4px; outline: none; color: #555; }
+        .form-input { padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px; outline: none; width: 250px; }
+        .btn-search { background: #333; color: #fff; border: none; padding: 8px 20px; border-radius: 4px; cursor: pointer; }
+        .btn-search:hover { background: #000; }
+
+        /* --- 게시판 테이블 --- */
+        .notice-table { width: 100%; border-collapse: collapse; text-align: center; font-size: 14px; border-top: 2px solid #333; }
+        .notice-table th { background: var(--table-header); padding: 15px 10px; font-weight: 600; color: #333; border-bottom: 1px solid #ddd; }
+        .notice-table td { padding: 15px 10px; border-bottom: 1px solid #eee; color: #555; }
+        .notice-table tr:hover { background: #f8f9fa; }
+
+        /* 제목 컬럼 스타일 */
+        .col-title { text-align: left; padding-left: 20px !important; width: 50%; }
+        .notice-link { color: #333; font-weight: 500; transition: 0.2s; display: inline-flex; align-items: center; gap: 8px; }
+        .notice-link:hover { color: var(--primary-blue); text-decoration: underline; }
+
+        /* 배지 스타일 */
+        .badge-notice { background: var(--accent-red); color: #fff; padding: 3px 8px; border-radius: 2px; font-size: 11px; font-weight: 400; margin-right: 5px; }
+        .icon-file { color: #888; font-size: 13px; }
+        .icon-new { color: var(--primary-blue); font-size: 10px; vertical-align: top; margin-left: 2px; }
+
+        /* 필독 공지 행 배경 강조 */
+        .row-pinned { background: #fdfbf7; }
+        .row-pinned td { font-weight: 600; color: #333; }
+
+        /* --- 하단 페이지네이션 & 글쓰기 버튼 --- */
+        .board-bottom { display: flex; justify-content: space-between; align-items: center; margin-top: 30px; position: relative; }
+        
+        .pagination { display: flex; gap: 5px; position: absolute; left: 50%; transform: translateX(-50%); }
+        .page-link { width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border: 1px solid #ddd; border-radius: 4px; color: #666; transition: 0.2s; }
+        .page-link:hover { background: #f1f1f1; }
+        .page-link.active { background: var(--primary-blue); color: #fff; border-color: var(--primary-blue); }
+
+        /* 글쓰기 버튼 (사서만 보임) */
+        .btn-write { 
+            background: var(--primary-blue); color: #fff; padding: 10px 25px; border-radius: 4px; font-weight: 700; border: none; cursor: pointer; display: flex; align-items: center; gap: 8px; 
+            /* 학생 화면일 경우 display: none; 처리 */
+        }
+        .btn-write:hover { background: #1a3dbf; }
+
+        /* 푸터 */
+        footer { background: #0f172a; color: #a0aec0; padding-top: 60px; padding-bottom: 30px; font-size: 14px; margin-top: 50px; }
+        .footer-grid { display: grid; grid-template-columns: 1.5fr 1fr 1fr 1.2fr; gap: 40px; margin-bottom: 50px; }
+        footer h4 { color: #fff; font-size: 16px; font-weight: 700; margin-bottom: 20px; }
+        footer ul li { margin-bottom: 12px; }
+        footer ul li a { color: #a0aec0; transition: 0.3s; }
+        .copyright { border-top: 1px solid rgba(255,255,255,0.1); padding-top: 25px; text-align: center; font-size: 13px; color: #718096; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="container header-inner">
+            <a href="index.html" class="logo">
+                <i class="fa-solid fa-book-open"></i> 동의대 도서관
+            </a>
+            <nav class="nav">
+                <ul>
+                    <li><a href="#">홈</a></li>
+                    <li><a href="#">My Library</a></li>
+                    <li><a href="#">도서검색</a></li>
+                    <li><a href="#">서비스</a></li>
+                    <li><a href="#" style="color:var(--primary-blue); font-weight:700;">공지사항</a></li>
+                </ul>
+            </nav>
+            <a href="#" class="login-btn"><i class="fa-solid fa-user"></i> 로그인</a>
+        </div>
+    </header>
+
+    <div class="page-container">
+        <div class="container">
+            
+            <div class="page-header">
+                <h2 class="page-title">공지사항</h2>
+                <p class="page-desc">동의대학교 중앙도서관의 주요 소식과 안내사항을 알려드립니다.</p>
+            </div>
+
+            <div class="board-toolbar">
+                <div class="total-count">총 <b>158</b>건의 게시물이 있습니다.</div>
+                <div class="search-box">
+                    <select class="form-select">
+                        <option>전체</option>
+                        <option>제목</option>
+                        <option>내용</option>
+                    </select>
+                    <input type="text" class="form-input" placeholder="검색어를 입력하세요">
+                    <button class="btn-search">검색</button>
+                </div>
+            </div>
+
+            <table class="notice-table">
+                <thead>
+                    <tr>
+                        <th width="8%">번호</th> <th>제목</th> <th width="10%">작성자</th> <th width="10%">첨부</th> <th width="12%">작성일</th> <th width="8%">조회</th> </tr>
+                </thead>
+                <tbody>
+                    
+                    <tr class="row-pinned">
+                        <td><span style="color:#e74c3c;"><i class="fa-solid fa-bullhorn"></i></span></td>
+                        <td class="col-title">
+                            <a href="#" class="notice-link">
+                                <span class="badge-notice">필독</span>
+                                2025학년도 1학기 도서관 이용 시간 변경 안내
+                            </a>
+                        </td>
+                        <td>관리자</td>
+                        <td><i class="fa-solid fa-paperclip icon-file"></i></td>
+                        <td>2025.12.01</td>
+                        <td>1,245</td>
+                    </tr>
+
+                    <tr class="row-pinned">
+                        <td><span style="color:#e74c3c;"><i class="fa-solid fa-bullhorn"></i></span></td>
+                        <td class="col-title">
+                            <a href="#" class="notice-link">
+                                <span class="badge-notice">필독</span>
+                                열람실 좌석 발권 시스템 서버 점검 안내 (12/10)
+                            </a>
+                        </td>
+                        <td>관리자</td>
+                        <td>-</td>
+                        <td>2025.12.03</td>
+                        <td>854</td>
+                    </tr>
+
+                    <tr>
+                        <td>158</td>
+                        <td class="col-title">
+                            <a href="#" class="notice-link">
+                                12월 신착도서 안내 및 큐레이션 전시
+                                <i class="fa-solid fa-n icon-new"></i>
+                            </a>
+                        </td>
+                        <td>사서과</td>
+                        <td><i class="fa-solid fa-paperclip icon-file"></i></td>
+                        <td>2025.12.05</td>
+                        <td>42</td>
+                    </tr>
+
+                    <tr>
+                        <td>157</td>
+                        <td class="col-title">
+                            <a href="#" class="notice-link">
+                                2025년 동계방학 중 도서관 근로장학생 모집 공고
+                            </a>
+                        </td>
+                        <td>사서과</td>
+                        <td><i class="fa-solid fa-paperclip icon-file"></i></td>
+                        <td>2025.11.30</td>
+                        <td>531</td>
+                    </tr>
+
+                    <tr>
+                        <td>156</td>
+                        <td class="col-title">
+                            <a href="#" class="notice-link">
+                                [문화행사] 저자와의 만남 : 김진 작가 초청 강연
+                            </a>
+                        </td>
+                        <td>운영팀</td>
+                        <td>-</td>
+                        <td>2025.11.28</td>
+                        <td>210</td>
+                    </tr>
+
+                    <tr>
+                        <td>155</td>
+                        <td class="col-title">
+                            <a href="#" class="notice-link">
+                                상호대차 서비스 일시 중단 안내 (타 대학 도서관 사정)
+                            </a>
+                        </td>
+                        <td>운영팀</td>
+                        <td>-</td>
+                        <td>2025.11.25</td>
+                        <td>156</td>
+                    </tr>
+
+                    <tr>
+                        <td>154</td>
+                        <td class="col-title">
+                            <a href="#" class="notice-link">
+                                도서관 홈페이지 서비스 만족도 조사 실시
+                            </a>
+                        </td>
+                        <td>관리자</td>
+                        <td>-</td>
+                        <td>2025.11.20</td>
+                        <td>89</td>
+                    </tr>
+
+                </tbody>
+            </table>
+
+            <div class="board-bottom">
+                <div style="width: 100px;"></div>
+
+                <div class="pagination">
+                    <a href="#" class="page-link"><i class="fa-solid fa-angle-left"></i></a>
+                    <a href="#" class="page-link active">1</a>
+                    <a href="#" class="page-link">2</a>
+                    <a href="#" class="page-link">3</a>
+                    <a href="#" class="page-link">4</a>
+                    <a href="#" class="page-link">5</a>
+                    <a href="#" class="page-link"><i class="fa-solid fa-angle-right"></i></a>
+                </div>
+
+                <button class="btn-write" onclick="location.href='notice_write.html'">
+                    <i class="fa-solid fa-pen"></i> 글쓰기
+                </button>
+            </div>
+
+        </div>
+    </div>
+
+    <footer>
+        <div class="container">
+            <div class="footer-grid">
+                <div class="footer-brand">
+                    <span class="f-logo"><i class="fa-solid fa-book-open"></i> 동의대 도서관</span>
+                    <p>지식과 학습의 중심, 동의대학교 도서관입니다.<br>여러분의 꿈을 응원합니다.</p>
+                </div>
+                <div>
+                    <h4>서비스</h4>
+                    <ul>
+                        <li><a href="#">희망자료 구입</a></li>
+                        <li><a href="#">좌석예약</a></li>
+                        <li><a href="#">대출/연장/예약</a></li>
+                        <li><a href="#">상호대차</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h4>이용안내</h4>
+                    <ul>
+                        <li><a href="#">이용시간</a></li>
+                        <li><a href="#">대출안내</a></li>
+                        <li><a href="#">시설안내</a></li>
+                        <li><a href="#">FAQ</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h4>연락처</h4>
+                    <p>부산광역시 부산진구 엄광로 176</p>
+                    <p>051-890-1234</p>
+                </div>
+            </div>
+            <div class="copyright">
+                <p>© 2024 Dong-eui University Library. All rights reserved.</p>
+            </div>
+        </div>
+    </footer>
+
+</body>
+</html>

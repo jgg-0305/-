@@ -1,0 +1,99 @@
+--- 데이터 조회 ---
+-- 기간별/월별 좌석 점유율 조회
+-- (최근 1개월 간의 일별 좌석 이용 횟수 조회)
+SELECT
+    DATE(log_time) AS log_date,
+    COUNT(CASE WHEN log_type = 'SEAT_IN' THEN 1 END) AS entry_count,
+    COUNT(CASE WHEN log_type = 'SEAT_OUT' THEN 1 END) AS exit_count
+FROM
+    entry_logs
+WHERE
+    log_time >= DATE_SUB(CURDATE(), INTERVAL 1 MONTH)
+    AND log_type IN ('SEAT_IN', 'SEAT_OUT')
+GROUP BY
+    log_date
+ORDER BY
+    log_date ASC;
+
+-- 시간대별 좌석 이용 현황 조회
+SELECT
+    HOUR(log_time) AS log_hour,
+    COUNT(*) AS total_entries
+FROM
+    entry_logs
+WHERE
+    log_type = 'SEAT_IN'
+    AND log_time >= DATE_SUB(CURDATE(), INTERVAL 1 WEEK) -- 예시: 최근 1주간 데이터
+GROUP BY
+    log_hour
+ORDER BY
+    log_hour ASC;
+
+-- 사용자별 이용 시간 순위 조회
+SELECT
+    T1.usr_id,
+    T2.usr_name,
+    SUM(TIMESTAMPDIFF(MINUTE, T1.start_time, T1.end_time)) AS total_usage_minutes
+FROM
+    (
+        -- SEAT_IN과 SEAT_OUT의 짝을 맞추는 서브쿼리
+        SELECT
+            e1.usr_id, e1.log_time AS start_time,
+            (SELECT MIN(e2.log_time) FROM entry_logs e2
+             WHERE e2.usr_id = e1.usr_id AND e2.log_type = 'SEAT_OUT' AND e2.log_time > e1.log_time) AS end_time
+        FROM
+            entry_logs e1
+        WHERE
+            e1.log_type = 'SEAT_IN'
+    ) T1
+JOIN
+    users T2 ON T1.usr_id = T2.usr_id
+WHERE
+    T1.end_time IS NOT NULL -- 퇴실 기록이 있는 경우만 계산
+GROUP BY
+    T1.usr_id, T2.usr_name
+ORDER BY
+    total_usage_minutes DESC
+LIMIT 10;
+
+-- 구역별 선호도 조회
+SELECT
+    T3.loc_name AS 열람실_구역명,
+    COUNT(T1.log_id) AS 총_이용_횟수,
+    -- 전체 이용 기록 대비 해당 구역의 비율 계산
+    ROUND(
+        COUNT(T1.log_id) * 100.0 / (
+            SELECT COUNT(*)
+            FROM entry_logs
+            WHERE log_type = 'SEAT_IN'
+              AND log_time >= DATE_SUB(CURDATE(), INTERVAL 6 MONTH)
+        ), 2
+    ) AS 이용_점유율_퍼센트
+FROM
+    entry_logs T1
+JOIN
+    seats T2 ON SUBSTRING_INDEX(T1.log_varchar, 'seat_id: ', -1) = T2.seat_id -- 로그 문자열에서 seat_id 추출
+JOIN
+    locations T3 ON T2.loc_id = T3.loc_id
+WHERE
+    T1.log_type = 'SEAT_IN' -- 입실(이용 시작) 기록만 카운트
+    AND T1.log_time >= DATE_SUB(CURDATE(), INTERVAL 6 MONTH) -- (최근 6개월 데이터 기준)
+GROUP BY
+    T3.loc_name, T3.loc_id
+ORDER BY
+    총_이용_횟수 DESC;
+
+--- 인덱스 생성 ---
+-- 좌석 현황 통계 계산 최적화
+CREATE INDEX idx_seats_loc_stat
+ON seats (loc_id, seat_stat);
+
+-- 기간별/유형별 출입 로그 조회를 위한 인덱스
+CREATE INDEX idx_entrylogs_time_type
+ON entry_logs (log_time, log_type);
+
+-- 사용자별 출입 기록 검색 및 이용 시간 계산을 위한 인덱스
+CREATE INDEX idx_entrylogs_usr_id_time
+ON entry_logs (usr_id, log_time);
+
+

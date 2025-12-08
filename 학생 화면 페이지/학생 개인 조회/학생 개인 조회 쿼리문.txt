@@ -1,0 +1,61 @@
+-- 사용자 기본 정보 조회 (헤더, 정보 박스)
+SELECT
+    usr_name,
+    usr_enrl,
+    usr_stat
+FROM
+    users
+WHERE
+    usr_id = '20233849'; -- 로그인한 사용자의 ID로 가정
+
+-- 대출 History 목록 조회 및 필터링
+-- '대출 History'는 대출 기록(loans) 중에서 이미 반납이 완료된(loan_ext=false이면서 loan_due가 현재 시간보다 지났거나, 반납일이 기록된) 기록들을 의미합니다.
+SELECT
+    T1.loan_id AS No,
+    T2.cbk_id AS 등록번호,
+    T3.bk_title AS 서명,
+    T3.bk_auth AS 저자,
+    T1.loan_date AS 대출일,
+    T1.loan_due AS 반납예정일,
+    T1.loan_ret AS 반납일,
+    CASE
+        WHEN T1.loan_ret IS NOT NULL AND T1.loan_ret > T1.loan_due THEN '연체반납'
+        WHEN T1.loan_ret IS NOT NULL THEN '반납완료'
+        ELSE '미반납' -- 현재 페이지 컨셉상 미포함되어야 하나, DB 구조상 포함 가능
+    END AS 상태
+FROM
+    loans T1
+JOIN
+    book_copies T2 ON T1.cbk_id = T2.cbk_id
+JOIN
+    books T3 ON T2.bk_id = T3.bk_id
+WHERE
+    T1.usr_id = '20233849' -- 로그인 사용자 필터링
+    AND T1.loan_ret IS NOT NULL -- 반납 기록이 있는 경우만 (History)
+    AND T1.loan_date BETWEEN '2025-01-01' AND '2025-12-06' -- 조회 기간 필터링
+ORDER BY
+    T1.loan_date DESC;
+
+-- 과거 대출 총 건수 조회 (페이지 하단 '총 N건' 표시)
+SELECT
+    COUNT(*) AS total_count
+FROM
+    loans
+WHERE
+    usr_id = '20233849' -- 로그인 사용자 필터링
+    AND loan_ret IS NOT NULL -- 반납 기록이 있는 경우만
+    AND loan_date BETWEEN '2025-01-01' AND '2025-12-06'; -- 조회 기간 필터링
+
+--- 인덱스 생성 ---
+
+-- 사용자 ID별 대출 기록 조회를 위한 인덱스 (가장 핵심적인 검색 조건)
+CREATE INDEX idx_loans_usr_id
+ON loans (usr_id);
+
+-- 대출일(조회기간 필터)과 사용자 ID를 결합한 복합 인덱스 (성능 최적화)
+CREATE INDEX idx_loans_date_user
+ON loans (usr_id, loan_date);
+
+-- 반납 여부(loan_ret IS NOT NULL)와 사용자 ID를 결합한 복합 인덱스 (History 조회 최적화)
+CREATE INDEX idx_loans_ret_user
+ON loans (usr_id, loan_ret);

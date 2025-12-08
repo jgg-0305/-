@@ -1,0 +1,103 @@
+-- 사용자 정보 조회 (예시: usr_id='20233849' 가정)
+SELECT 
+    usr_name, 
+    usr_enrl, 
+    usr_stat 
+FROM 
+    users 
+WHERE 
+    usr_id = '20233849';
+
+--  신청일 자동 채움
+SELECT 
+    CURDATE();
+
+-- 상호대차 신청 기록 (예시 데이터)
+INSERT INTO inter_library_loans (
+    usr_id, 
+    ill_title, 
+    ill_auth, 
+    ill_pub_year, 
+    ill_lib_name, 
+    ill_req_data, 
+    ill_req_date, 
+    ill_stat
+)
+VALUES (
+    '20233849', 
+    '도서 제목을 입력하세요', 
+    '저자명', 
+    2025,             -- 출판연도
+    '출판사', 
+    '내용을 입력하세요.',  -- 요청사항
+    NOW(), 
+    '신청완료' 
+);
+
+-- 3-1. 사용자별 신청 내역 조회 최적화를 위한 인덱스
+CREATE INDEX idx_ill_usr_id 
+ON inter_library_loans (usr_id);
+
+-- 3-2. 도서 제목 검색 최적화를 위한 인덱스
+CREATE INDEX idx_ill_title 
+ON inter_library_loans (ill_title);
+
+-- 3-3. 신청 상태별 필터링 최적화를 위한 인덱스
+CREATE INDEX idx_ill_stat 
+ON inter_library_loans (ill_stat);
+
+------------------------------------------------
+
+-- 1. [헤더] 로그인 사용자 정보 조회
+-- 용도: 상단 'OOO님' 표시
+SELECT 
+    usr_name, 
+    usr_stat 
+FROM 
+    users 
+WHERE 
+    usr_id = '20233849'; -- 로그인한 학번
+
+
+-- 2. [폼 로딩] 오늘 날짜 자동 표시
+-- 용도: 신청일 input (readonly) 채우기
+SELECT CURDATE();
+
+
+-- 3. [신청 버튼] 상호대차 신청 완료 (INSERT)
+-- ★ 핵심 변경점: 
+--   1) '신청 도서관'과 '상태'는 제외했습니다. (DB가 알아서 Default값으로 채움)
+--   2) '출판연도'가 추가되었습니다.
+--   3) '출판사', '요청사항'은 DB에 없으므로 여전히 제외됩니다.
+
+INSERT INTO inter_library_loans (
+    usr_id,          -- 신청자 학번
+    ill_title,       -- 서명 (필수)
+    ill_pub_year,    -- [NEW] 출판연도 (HTML 입력값)
+    ill_auth,        -- 저자
+    ill_req_date     -- 신청 일시
+)
+VALUES (
+    '20233849',            -- 1. usr_id
+    '데이터베이스 개론',     -- 2. ill_title (HTML input: 서명)
+    '2025',                -- 3. ill_pub_year (HTML input: 출판연도)
+    '김철수',               -- 4. ill_auth (HTML input: 저자명)
+    NOW()                  -- 5. ill_req_date (현재 시간)
+);
+
+
+
+
+-- 3-1. 사용자별 신청 내역 조회 최적화를 위한 인덱스
+CREATE INDEX idx_ill_usr_id 
+ON inter_library_loans (usr_id);
+
+-- 3-2. 도서 제목 검색 최적화를 위한 인덱스
+CREATE INDEX idx_ill_title 
+ON inter_library_loans (ill_title);
+
+-- 3-3. 신청 상태별 필터링 최적화를 위한 인덱스
+CREATE INDEX idx_ill_stat 
+ON inter_library_loans (ill_stat);
+
+

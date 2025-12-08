@@ -1,0 +1,55 @@
+--- 데이터 조회 ---
+-- 봉사활동 신청 목록 조회
+SELECT
+    T1.vol_id AS No,
+    T1.vol_date AS 활동_날짜,
+    T1.vol_start AS 시작_시간,
+    T1.vol_end AS 종료_시간,
+    T1.vol_dur AS 활동_시간,
+    T1.vol_desc AS 활동_내용,
+    T1.vol_stat AS 처리_상태,
+    T1.vol_note AS 처리_비고,
+    T2.usr_id AS 사용자_ID,
+    T2.usr_name AS 사용자_이름,
+    T2.usr_dept AS 소속학과
+FROM
+    volunteers T1
+JOIN
+    users T2 ON T1.usr_id = T2.usr_id
+WHERE
+    T1.vol_stat IN ('신청', '승인', '반려', '활동 완료') -- 모든 상태를 조회하거나
+    -- T1.vol_stat = '신청' -- [필터] 처리 대기 중인 건만 조회
+    -- AND T2.usr_name LIKE '%검색어%' -- [검색] 사용자 이름 검색
+    -- AND T1.vol_date BETWEEN '2025-01-01' AND '2025-12-31' -- [필터] 기간 검색
+ORDER BY
+    T1.vol_date ASC, T1.vol_start ASC;
+
+-- 신규 신청 건수 조회
+SELECT
+    COUNT(*) AS pending_count
+FROM
+    volunteers
+WHERE
+    vol_stat = '신청';
+
+-- 누적 봉사시간 조회
+SELECT
+    SUM(vol_dur) AS total_approved_hours
+FROM
+    volunteers
+WHERE
+    vol_stat = '활동 완료'
+    AND vol_note LIKE '%시간 인정됨%';
+
+--- 인덱스 생성 ---
+-- 처리 상태별, 날짜별 필터링/정렬을 위한 핵심 복합 인덱스
+CREATE INDEX idx_vol_stat_date_start
+ON volunteers (vol_stat, vol_date ASC, vol_start ASC);
+
+-- 사용자 ID를 통한 조인 및 검색 최적화를 위한 인덱스
+CREATE INDEX idx_vol_usr_id
+ON volunteers (usr_id);
+
+-- 사용자 이름으로 봉사활동을 검색할 때 Users 테이블의 성능 최적화
+CREATE INDEX idx_users_name
+ON users (usr_name);
