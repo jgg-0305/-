@@ -1,0 +1,25 @@
+INSERT INTO ai_analysis_log (
+    lib_id, 
+    quest_text, 
+    gen_sql, 
+    chart_type, 
+    error_msg, 
+    exec_time
+) VALUES (
+    'admin_01',                                 -- 로그인한 사서 ID (세션 정보)
+    '컴퓨터 공학과에서 가장 많이 빌린책 Top 5',                     -- 사용자가 입력한 자연어 질문
+    'SELECT
+    b.title AS book_title,
+    b.author,
+    COUNT(*) AS borrow_count
+FROM loans l
+JOIN students s ON l.student_id = s.student_id
+JOIN books b ON l.book_id = b.book_id
+WHERE s.major = '컴퓨터공학과'  -- 조회하고 싶은 특정 학과
+GROUP BY b.book_id, b.title, b.author
+ORDER BY borrow_count DESC
+LIMIT 5;', -- AI가 내부적으로 생성한 SQL (예시)
+    'bar',                                      -- 시각화된 차트 타입 (bar, line, doughnut 등)
+    NULL,                                       -- 성공했으므로 에러 메시지는 NULL
+    1500                                        -- 실행 소요 시간 (ms 단위)
+);
