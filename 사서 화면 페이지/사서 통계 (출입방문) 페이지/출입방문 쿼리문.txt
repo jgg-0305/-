@@ -31,15 +31,15 @@ ORDER BY
 
 -- 방문자 랭킹 조회
 SELECT
-    T1.usr_id AS 사용자_ID,
     T2.usr_name AS 사용자_이름,
     COUNT(T1.log_id) AS 방문_횟수
+    T2.usr_dept
 FROM
     entry_logs T1
 JOIN
     users T2 ON T1.usr_id = T2.usr_id
 WHERE
-    T1.log_type = 'ENTRY' -- 도서관 입실 기록만 필터링
+    T1.log_type = '입실' -- 도서관 입실 기록만 필터링
     AND T1.log_time >= DATE_SUB(CURDATE(), INTERVAL 1 MONTH) -- 예시: 최근 1개월 데이터 기준
 GROUP BY
     T1.usr_id, T2.usr_name
@@ -55,6 +55,5 @@ ON entry_logs (log_time, log_type);
 -- 사용자별 방문 횟수 계산 및 랭킹 조회를 위한 인덱스
 CREATE INDEX idx_entrylogs_usr_id_time
 ON entry_logs (usr_id, log_time);
-
 
 
