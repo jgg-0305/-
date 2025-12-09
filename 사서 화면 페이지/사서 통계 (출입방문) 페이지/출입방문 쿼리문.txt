@@ -8,7 +8,7 @@ SELECT
 FROM
     entry_logs
 WHERE
-    log_type = 'ENTRY' -- 도서관 입실 기록만 필터링
+    log_type = '입실' -- 도서관 입실 기록만 필터링
     AND log_time >= DATE_SUB(CURDATE(), INTERVAL 6 MONTH)
 GROUP BY
     log_year, log_month
@@ -55,5 +55,6 @@ ON entry_logs (log_time, log_type);
 -- 사용자별 방문 횟수 계산 및 랭킹 조회를 위한 인덱스
 CREATE INDEX idx_entrylogs_usr_id_time
 ON entry_logs (usr_id, log_time);
+
 
 
