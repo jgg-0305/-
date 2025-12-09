@@ -1,152 +1,111 @@
--- 최신 공지사항 목록 조회 (메인 화면용)
-SELECT
-    ntc_title,
-    ntc_date
-FROM
-    notices
-ORDER BY
-    ntc_date DESC, ntc_id DESC
-LIMIT 3;
+/* =================================================================
+   [페이지명] 도서관 메인 화면 (사용자/공용)
+   [작성일] 2025-12-09
+   [수정내용] 
+    1. ENUM 값 DDL 일치 ('occupied' -> '사용중', 'PAGE_VIEW' -> '입실')
+    2. 존재하지 않는 컬럼 제거 (log_varchar 등)
+    3. 대시보드 통계 쿼리 통합 및 최적화
+   ================================================================= */
 
--- 사용자 로그인 상태 및 기본 정보 조회 (로그인 시 헤더에 표시)
-SELECT
-    usr_name,
-    usr_stat
-FROM
-    users
-WHERE
-    usr_id = '로그인한_사용자_ID';
-
--- 인기 도서 목록 조회 (월별 대출 통계 기반 Top 5)
--- 현재 연도/월을 기준으로 가장 많이 대출된 도서의 정보를 가져옵니다.
-SELECT
-    T1.bk_title,
-    T1.bk_auth,
-    T2.loan_cnt
-FROM
-    books T1
-JOIN
-    monthly_book_stats T2 ON T1.bk_id = T2.bk_id
-WHERE
-    T2.stat_year = YEAR(CURDATE())
-    AND T2.stat_month = MONTH(CURDATE())
-ORDER BY
-    T2.loan_cnt DESC
-LIMIT 5;
-
--- 신착 도서 목록 조회 (최근 등록된 도서 Top 5)
-SELECT
-    bk_title,
-    bk_auth,
-    bk_pub
-FROM
-    books
-ORDER BY
-    bk_id DESC -- bk_id가 등록 순서를 나타낸다고 가정
-LIMIT 5;
-
--- 전체 열람실 좌석 현황 통계 조회 (메인 페이지 시설 현황 표시)
-SELECT
-    COUNT(*) AS total_seats,
-    SUM(CASE WHEN seat_stat = 'occupied' THEN 1 ELSE 0 END) AS occupied_seats,
-    SUM(CASE WHEN seat_stat = 'available' THEN 1 ELSE 0 END) AS available_seats
-FROM
-    seats;
-
---- 인덱스 생성 ---
--- 공지사항 조회 최적화 (날짜 역순 정렬을 빠르게)
-CREATE INDEX idx_notices_date_desc 
-ON notices (ntc_date DESC, ntc_id DESC);
-
--- 월별 도서 통계 조회 최적화 (연도/월 필터링을 빠르게)
-CREATE INDEX idx_monthly_stats_year_month 
-ON monthly_book_stats (stat_year, stat_month, loan_cnt DESC);
-
--- 신착 도서 조회 최적화 (가장 최근 도서를 빠르게)
-CREATE INDEX idx_books_id_desc 
-ON books (bk_id DESC);
-
--- 좌석 현황 통계 계산 최적화 (상태별 집계를 빠르게)
-CREATE INDEX idx_seats_stat 
-ON seats (seat_stat);
-
---- 데이터 삽입 ---
--- 메인 화면 접속 기록 (방문자 수 통계에 활용)
-INSERT INTO entry_logs (
-    usr_id, 
-    log_type, 
-    log_time, 
-    log_varchar
-)
-VALUES (
-    '로그인한_사용자_ID' OR 'NULL', -- 비로그인 사용자는 NULL 또는 'GUEST'
-    'PAGE_VIEW', 
-    NOW(), 
-    '메인화면 접속'
-);
-------------------------------------------------------------------------
-
-
+-- -----------------------------------------------------
+-- 1. [헤더] 로그인 사용자 정보 조회
+-- -----------------------------------------------------
 SELECT 
     usr_name, 
-    usr_stat 
-FROM users 
-WHERE usr_id = ?;
+    usr_stat  -- (정상/정지/졸업)
+FROM 
+    users 
+WHERE 
+    usr_id = ?; -- [변수] 로그인한 사용자 ID
 
 
+-- -----------------------------------------------------
 -- 2. [대시보드] 도서관 현황 통계 (한 번에 조회)
--- 용도: HTML .dashboard-grid 내 숫자 데이터 바인딩
--- 설명: 총 장서 수, 전자책 수, 현재 이용자, 좌석 현황을 서브쿼리로 한 번에 가져옴
+-- -----------------------------------------------------
+-- 용도: 메인 화면의 숫자 데이터 바인딩 (장서수, 이용자수, 좌석현황)
 SELECT
     -- (1) 총 장서 수 (실물 + 전자책 포함 모든 복본)
     (SELECT COUNT(*) FROM book_copies) AS val_total_books,
     
-    -- (2) 전자책 수 (is_ebook = TRUE 인 경우)
-    (SELECT COUNT(*) FROM book_copies WHERE is_ebook = TRUE) AS val_ebooks,
+    -- (2) 전자책 수 (is_ebook = TRUE)
+    (SELECT COUNT(*) FROM book_copies WHERE is_ebook = 1) AS val_ebooks,
     
-    -- (3) 현재 이용자 수 (최근 3시간 내 '입실' 기록이 있는 유저 수)
+    -- (3) 현재 도서관 이용자 수 (추정치: 최근 3시간 내 '입실' 기록 수)
+    -- * DDL log_type ENUM: '입실', '퇴실'
     (SELECT COUNT(DISTINCT usr_id) 
      FROM entry_logs 
      WHERE log_time >= DATE_SUB(NOW(), INTERVAL 3 HOUR) 
        AND log_type = '입실') AS val_current_users,
        
-    -- (4) 전체 좌석 수
+    -- (4) 열람실 전체 좌석 수
     (SELECT COUNT(*) FROM seats) AS val_total_seats,
     
-    -- (5) 사용 중인 좌석 수 (좌석 점유율 계산용)
+    -- (5) 사용 중인 좌석 수
+    -- * DDL seat_stat ENUM: '사용가능', '사용중', '수리중'
     (SELECT COUNT(*) FROM seats WHERE seat_stat = '사용중') AS val_occupied_seats;
 
 
--- 3. [대시보드] 최신 공지사항 목록 (Top 3)
--- 용도: HTML .dash-card (최신 공지사항) 리스트
+-- -----------------------------------------------------
+-- 3. [공지사항] 최신 공지 목록 (Top 3)
+-- -----------------------------------------------------
 SELECT 
     ntc_id,
     ntc_title, 
-    DATE_FORMAT(ntc_date, '%m.%d') AS ntc_date_fmt -- 화면 표시용 날짜 포맷 (예: 01.15)
-FROM notices
-ORDER BY ntc_date DESC, ntc_id DESC
+    DATE_FORMAT(ntc_date, '%m.%d') AS ntc_date_fmt -- 예: 12.09
+FROM 
+    notices
+ORDER BY 
+    ntc_important DESC, -- 필독 공지 우선
+    ntc_date DESC, 
+    ntc_id DESC
 LIMIT 3;
 
 
--- 4. [인기 도서] 베스트셀러 Top 5
--- 용도: HTML .popular-books 섹션 그리드
--- 조건: 현재 연도/월 기준 대출 횟수가 가장 많은 순서
+-- -----------------------------------------------------
+-- 4. [인기 도서] 이달의 베스트셀러 Top 5
+-- -----------------------------------------------------
+-- 조건: monthly_book_stats 테이블 활용 (성능 최적화)
 SELECT 
     T1.bk_id,
     T1.bk_title,    -- 책 제목
     T1.bk_auth,     -- 저자
-    T1.bk_image     -- 표지 이미지 경로 (img src에 바인딩)
-FROM books T1
-JOIN monthly_book_stats T2 ON T1.bk_id = T2.bk_id
-WHERE T2.stat_year = YEAR(CURDATE()) 
-  AND T2.stat_month = MONTH(CURDATE())
-ORDER BY T2.loan_cnt DESC
+    T1.bk_image     -- 표지 이미지
+FROM 
+    books T1
+JOIN 
+    monthly_book_stats T2 ON T1.bk_id = T2.bk_id
+WHERE 
+    T2.stat_year = YEAR(CURDATE()) 
+    AND T2.stat_month = MONTH(CURDATE())
+ORDER BY 
+    T2.loan_cnt DESC
 LIMIT 5;
 
 
--- 5. [검색] 도서 검색 (메인 배너 검색창)
--- 용도: HTML .search-box 에서 검색 시 결과 조회
--- 파라미터: ? = 검색어 (title 혹은 author)
+-- -----------------------------------------------------
+-- 5. [신착 도서] 새로 들어온 책 Top 5
+-- -----------------------------------------------------
+-- 복본(book_copies)의 등록일(cbk_reg) 기준 최신순
+SELECT 
+    B.bk_id,
+    B.bk_title,
+    B.bk_auth,
+    B.bk_image,
+    MAX(C.cbk_reg) AS recent_reg_date
+FROM 
+    books B
+JOIN 
+    book_copies C ON B.bk_id = C.bk_id
+GROUP BY 
+    B.bk_id
+ORDER BY 
+    recent_reg_date DESC
+LIMIT 5;
+
+
+-- -----------------------------------------------------
+-- 6. [검색] 도서 통합 검색 (메인 배너)
+-- -----------------------------------------------------
 SELECT 
     bk_id,
     bk_title,
@@ -154,23 +113,25 @@ SELECT
     bk_pub,
     bk_year,
     bk_image
-FROM books
-WHERE bk_title LIKE CONCAT('%', ?, '%') 
-   OR bk_auth LIKE CONCAT('%', ?, '%')
-ORDER BY bk_title ASC
-LIMIT 10; -- 결과 미리보기용 제한
+FROM 
+    books
+WHERE 
+    bk_title LIKE CONCAT('%', ?, '%')   -- [변수] 검색어
+    OR bk_auth LIKE CONCAT('%', ?, '%') -- [변수] 검색어
+ORDER BY 
+    bk_title ASC
+LIMIT 10;
 
 
--- 6. [로그] 메인 화면 접속 기록 (방문자 집계용)
--- 용도: 사용자가 메인 페이지에 접속할 때 백그라운드에서 실행
--- 파라미터: ? = 사용자 ID (비로그인 시 NULL 혹은 게스트 ID 처리)
+-- -----------------------------------------------------
+-- 7. [로그] 접속 기록 (방문자 집계용)
+-- -----------------------------------------------------
 INSERT INTO entry_logs (
     usr_id, 
     log_type, 
     log_time
 ) VALUES (
-    ?,       -- 사용자 ID
-    '입실',   -- ENUM 값 (입실/퇴실)
+    ?,       -- [변수] 사용자 ID
+    '입실',   -- DDL ENUM 값 준수
     NOW()
 );
-

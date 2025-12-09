@@ -1,55 +1,10 @@
---- 데이터 조회 ---
--- 특정 희망자료 신청의 상세 정보 조회
-SELECT
-    req_id AS 신청번호,
-    usr_id AS 신청자ID,
-    req_title AS 서명,
-    req_auth AS 저자,
-    req_pub AS 출판사,
-    req_pub_year AS 발행연도,
-    req_isbn AS ISBN,
-    req_date AS 신청일,
-    req_stat AS 처리상태,
-
-FROM
-    requests
-WHERE
-    req_id = '조회할_신청_ID'
-    AND usr_id = '로그인한_사용자_ID'; 
-
---- 데이터 업데이트 ---
--- 신청 자료 취소
-UPDATE
-    requests
-SET
-    req_stat = '신청취소',
-    req_note = CONCAT(IFNULL(req_note, ''), ' / ', '사용자 취소:', NOW())
-WHERE
-    req_id = '취소할_신청_ID'
-    AND usr_id = '로그인한_사용자_ID'
-    AND req_stat IN ('접수대기', '심사중'); -- 예시: 특정 상태에서만 취소 가능
-
--- 신청 자료 삭제
--- DELETE는 일반적으로 피하지만, 필요하다면:
-DELETE FROM
-    requests
-WHERE
-    req_id = '삭제할_신청_ID'
-    AND usr_id = '로그인한_사용자_ID'
-    AND req_stat = '접수대기'; -- 예시: 접수대기 상태의 건만 삭제 허용
-
---- 인덱스 생성 ---
--- 사용자 ID별 신청 건을 빠르게 찾는 인덱스
-CREATE INDEX idx_requests_usr_id
-ON requests (usr_id);
-
--------------------------------------------------------------------
 /* =================================================================
    [페이지명] 학생 개인 조회 > 나의 희망자료 신청 상세 조회
-   [작성일] 2025-12-08 (수정완료)
+   [작성일] 2025-12-09
    [수정내용] 
-    1. 화면(HTML) 항목에 맞춰 가격, 권수, 참고사항 컬럼 조회 추가
-    2. 삭제 버튼 기능: 물리 삭제(DELETE)로 확정
+    1. ENUM 값 DDL 일치 ('접수대기' -> '대기')
+    2. 컬럼명 수정 (req_note -> req_memo)
+    3. DDL에 없는 req_mod_date 컬럼 제거
    ================================================================= */
 
 -- -----------------------------------------------------
@@ -61,7 +16,7 @@ SELECT
 FROM
     users
 WHERE
-    usr_id = '20233849'; -- [세션] 로그인한 사용자 ID
+    usr_id = ?; -- [변수] 로그인한 사용자 ID
 
 
 -- -----------------------------------------------------
@@ -73,41 +28,40 @@ SELECT
     req_pub     AS 출판사,
     req_year    AS 출판연도,
     req_isbn    AS ISBN,
-    req_price   AS 권당가격,    -- [HTML input 매칭]
-    req_qty     AS 권수,        -- [HTML input 매칭]
+    req_price   AS 권당가격,    -- [DDL] req_price 컬럼 존재 확인
+    req_qty     AS 권수,        -- [DDL] req_qty 컬럼 존재 확인
     DATE_FORMAT(req_date, '%Y-%m-%d') AS 신청일,
-    req_note    AS 참고사항,    -- [HTML input 매칭]
+    req_memo    AS 참고사항,    -- [수정] req_note -> req_memo
     req_stat    AS 처리상태     -- (화면 출력 X, 로직용)
 FROM
     requests
 WHERE
-    req_id = ?          -- [파라미터] 신청번호
-    AND usr_id = ?;     -- [파라미터] 학번
+    req_id = ?          -- [변수] 신청번호
+    AND usr_id = ?;     -- [변수] 학번
 
 
 -- -----------------------------------------------------
 -- 3. [기능] 신청 정보 수정 (UPDATE)
 -- -----------------------------------------------------
--- 화면 하단 '수정' 버튼: 접수대기 상태일 때만 비고 수정
+-- 화면 하단 '수정' 버튼: '대기' 상태일 때만 비고(참고사항) 수정 가능
 UPDATE
     requests
 SET
-    req_note = ?,       -- [파라미터] 수정할 참고사항
-    req_mod_date = NOW()
+    req_memo = ?       -- [수정] req_note -> req_memo (수정할 내용)
 WHERE
-    req_id = ?          -- [파라미터] 신청번호
-    AND usr_id = ?      -- [파라미터] 학번
-    AND req_stat = '접수대기';
+    req_id = ?         -- [변수] 신청번호
+    AND usr_id = ?     -- [변수] 학번
+    AND req_stat = '대기'; -- [ENUM 체크] '접수대기' -> '대기'
 
 
 -- -----------------------------------------------------
 -- 4. [기능] 신청 자료 삭제 (DELETE)
 -- -----------------------------------------------------
 -- 화면 하단 '삭제' 버튼: 데이터를 완전히 삭제함
--- [주의] 이미 처리가 시작된(승인/구매중) 건은 삭제되지 않도록 조건 유지
+-- [주의] 이미 처리가 시작된(승인/구매완료) 건은 삭제되지 않도록 조건 유지
 DELETE FROM
     requests
 WHERE
-    req_id = ?          -- [파라미터] 신청번호
-    AND usr_id = ?      -- [파라미터] 학번 (본인 것만 삭제 가능)
-    AND req_stat IN ('접수대기', '신청중'); -- [안전장치] 아직 접수 단계인 것만 삭제 가능
+    req_id = ?         -- [변수] 신청번호
+    AND usr_id = ?     -- [변수] 학번 (본인 것만 삭제 가능)
+    AND req_stat = '대기'; [cite_start]-- [ENUM 체크] 심사 전('대기')인 경우만 삭제 가능 [cite: 217, 218]
