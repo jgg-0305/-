@@ -96,7 +96,7 @@ ON entry_logs (log_time, log_type);
 CREATE INDEX idx_entrylogs_usr_id_time
 ON entry_logs (usr_id, log_time);
 
------------------------------------------------------------------------------
+-- ---------------------------------------------------------------------------
 
 -- 1. [기간별 통계] 일별 좌석 이용 건수 조회 (Line Chart용)
 -- 화면: '기간별 평균 좌석 점유율' 차트 데이터
@@ -196,12 +196,6 @@ CREATE INDEX idx_seat_res_seat ON seat_reservations (seat_id, res_start);
 
 -- 사용자별 통계 조회를 빠르게 (쿼리 4번용)
 CREATE INDEX idx_seat_res_user ON seat_reservations (usr_id, res_start);
-
-
-
-
-
-
 
 
 

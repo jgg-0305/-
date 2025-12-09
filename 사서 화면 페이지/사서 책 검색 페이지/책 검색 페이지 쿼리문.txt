@@ -1,57 +1,73 @@
 --- 데이터 조회 ---
--- 도서 목록 조회
+-- 도서 검색 조회
 SELECT
-    T1.bk_id AS 도서_ID,
-    T1.bk_title AS 서명,
-    T1.bk_auth AS 저자,
-    T1.bk_pub AS 출판사,
-    T1.bk_isbn AS ISBN,
-    T1.bk_call_no AS 청구기호,
-    COUNT(T2.cbk_id) AS 총_복본_수,
-    SUM(CASE WHEN T2.cbk_stat = 'available' THEN 1 ELSE 0 END) AS 가용_복본_수 -- 대출 가능한 상태의 복본 수
-FROM
-    books T1
-LEFT JOIN
-    book_copies T2 ON T1.bk_id = T2.bk_id
-WHERE
-    T1.bk_title LIKE '%검색어%' -- [검색 조건] 서명 검색
-    -- OR T1.bk_auth LIKE '%검색어%' -- [검색 조건] 저자 검색
-    -- OR T1.bk_isbn = 'ISBN_번호' -- [검색 조건] ISBN 정확히 일치 검색
-GROUP BY
-    T1.bk_id, T1.bk_title, T1.bk_auth, T1.bk_pub, T1.bk_isbn, T1.bk_call_no
-ORDER BY
-    T1.bk_title ASC
-LIMIT 50; -- 목록 표시를 위해 50개 제한
+    -- 도서 기본 정보 (books T2)
+    T2.bk_title AS 서명,
+    T2.bk_auth AS 저자,
+    T2.bk_pub AS 출판사,
+    T2.bk_pub_date AS 발행일자, -- 'bk_pub_year'를 'bk_pub_date'로 수정 가정
+    T2.bk_isbn AS ISBN,
+    
+    -- 복본 상세 정보 (book_copies T1)
+    T1.cbk_id AS 등록번호,
+    T1.bk_id AS 청구기호,
+    T3.loc_name AS 소장위치, -- locations T3
+    T1.cbk_stat AS 도서_상태,
+    
+    -- 현재 대출 정보 (loans T4, users T5)
+    T5.usr_name AS 대출자_이름,
+    T5.usr_id AS 대출자_학번,
+    T4.loan_due AS 반납_예정일,
+    
+    -- 예약자 목록 (reserves T6, users U)
+    (
+        SELECT GROUP_CONCAT(CONCAT(U.usr_name, ' (', T6.res_rank, '순위)') 
+            ORDER BY T6.res_rank ASC 
+            SEPARATOR ', ')
+        FROM reserves T6
+        JOIN users U ON T6.usr_id = U.usr_id
+        WHERE T6.cbk_id = T1.cbk_id
+    ) AS 예약자_목록,
+    
+    -- 해당 복본의 대출 가능 여부 (UI 표시용)
+    CASE
+        WHEN T1.cbk_stat = 'available' AND T4.loan_id IS NULL THEN '대출 가능'
+        ELSE '대출 불가'
+    END AS 대출_가능_여부,
 
--- 상세 목록 조회
-SELECT
-    T1.cbk_id AS 복본_ID,
-    T1.cbk_reg_no AS 등록번호, -- 복본 등록번호
-    T1.cbk_call_no AS 청구기호,
-    T1.cbk_stat AS 현재_상태, -- available, loaned, reserved, lost 등
-    T2.loc_name AS 현재_위치_열람실,
-    -- 현재 대출 정보 (대출 중일 경우에만 표시)
-    T3.loan_due AS 반납_예정일,
-    T4.usr_name AS 대출자_이름,
-    T4.usr_id AS 대출자_ID,
-    -- 현재 예약 정보 (예약 중일 경우에만 표시)
-    (SELECT GROUP_CONCAT(T5.usr_name ORDER BY T5.res_rank ASC SEPARATOR ', ')
-     FROM reserves T5
-     JOIN users U ON T5.usr_id = U.usr_id
-     WHERE T5.cbk_id = T1.cbk_id
-    ) AS 예약자_목록
+    -- 해당 도서(서명) 전체의 총 가용 복본 수
+    (
+        SELECT 
+            COUNT(SubC.cbk_id)
+        FROM 
+            book_copies SubC
+        WHERE 
+            SubC.bk_id = T1.bk_id AND SubC.cbk_stat = 'available'
+    ) AS 도서_총_가용_권수
 FROM
     book_copies T1
+JOIN
+    books T2 ON T1.bk_id = T2.bk_id
 LEFT JOIN
-    locations T2 ON T1.loc_id = T2.loc_id
+    locations T3 ON T1.loc_id = T3.loc_id
 LEFT JOIN
-    loans T3 ON T1.cbk_id = T3.cbk_id AND T3.loan_ret IS NULL -- 현재 대출 중인 건만 조인
+    loans T4 ON T1.cbk_id = T4.cbk_id AND T4.loan_ret IS NULL
 LEFT JOIN
-    users T4 ON T3.usr_id = T4.usr_id
+    users T5 ON T4.usr_id = T5.usr_id
 WHERE
-    T1.bk_id = '선택된_도서_ID'
+    1=1
+    /* [통합 검색 조건] */
+    AND (
+        T2.bk_title LIKE CONCAT('%', '검색어_입력_값', '%')
+        OR T2.bk_auth LIKE CONCAT('%', '검색어_입력_값', '%')
+        OR T2.bk_isbn = '검색어_입력_값'
+        OR T5.usr_name LIKE CONCAT('%', '검색어_입력_값', '%') 
+        OR T1.cbk_call_no LIKE CONCAT('%', '검색어_입력_값', '%')
+        OR T1.cbk_reg_no LIKE CONCAT('%', '검색어_입력_값', '%')
+    )
 ORDER BY
-    T1.cbk_id ASC;
+    T2.bk_title ASC, T1.cbk_reg_no ASC
+LIMIT 50;
 
 --- 인덱스 생성 ---
 -- 도서 검색 조건 최적화 (제목/저자/ISBN)
@@ -71,6 +87,14 @@ ON book_copies (bk_id, cbk_stat);
 -- 복본 등록번호(cbk_reg_no) 또는 청구기호(cbk_call_no)로 검색하는 경우를 위한 인덱스
 CREATE INDEX idx_copies_reg_no
 ON book_copies (cbk_reg_no);
+
+-- 복본 청구기호(cbk_call_no) 검색 최적화
+CREATE INDEX idx_copies_call_no
+ON book_copies (cbk_call_no);
+
+-- 대출자 이름(usr_name) 검색 최적화
+CREATE INDEX idx_users_name
+ON users (usr_name);
 
 -- 대출 및 예약 조인 최적화
 CREATE INDEX idx_loans_cbk_id

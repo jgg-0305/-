@@ -1,66 +1,113 @@
---- 데이터 조회 ---
--- 전체 도서 대출 현황 조회(최근 12개월)
+/* =================================================================
+   [페이지명] 사서 통계 > 도서 대출 통계
+   [작성일] 2025-12-09
+   [수정내용] 
+    1. 메인 차트와 개별 검색 쿼리 분리
+    2. 성능 최적화를 위해 monthly_book_stats(요약 테이블) 활용
+    3. UI 필터(연도) 반영
+   ================================================================= */
+
+-- -----------------------------------------------------
+-- 1. [메인 차트] 전체 도서 월별 대출 추이 (Line Chart)
+-- -----------------------------------------------------
+-- 화면 상단 '대출 현황' 그래프 및 '총 대출 뱃지' 데이터
 SELECT
-    YEAR(T1.loan_date) AS loan_year,
-    MONTH(T1.loan_date) AS loan_month,
-    COUNT(T1.loan_id) AS total_loans
+    stat_month      AS 월,
+    SUM(loan_cnt)   AS 전체_대출_권수
 FROM
-    loans T1
-JOIN
-    book_copies T2 ON T1.cbk_id = T2.cbk_id
-JOIN
-    books T3 ON T2.bk_id = T3.bk_id
+    monthly_book_stats
 WHERE
-    T3.bk_title = '사용자가 검색한 도서명'  -- **검색된 도서명으로 필터링**
-    AND YEAR(T1.loan_date) = YEAR(CURDATE()) -- 현재 연도 데이터만 필터링
+    stat_year = 2025  -- [변수] UI에서 선택한 연도
 GROUP BY
-    YEAR(T1.loan_date), MONTH(T1.loan_date) WITH ROLLUP
+    stat_month
 ORDER BY
-    loan_year ASC, loan_month ASC;
+    stat_month ASC;
 
--- 도서 대출 순위 조회
+
+-- -----------------------------------------------------
+-- 2. [서브 차트] 주제(장르)별 대출 비율 (Doughnut Chart)
+-- -----------------------------------------------------
+-- 화면 중단 좌측 '주제별 대출 비율' 그래프
 SELECT
-    T3.bk_title AS 서명,
-    COUNT(T1.loan_id) AS total_loan_count
+    G.gnr_name      AS 장르명,
+    SUM(S.loan_cnt) AS 대출_권수,
+    -- (옵션) 비율 계산은 보통 프론트엔드(Chart.js)에서 처리하지만, 필요시 SQL로 계산 가능
+    ROUND(SUM(S.loan_cnt) * 100.0 / (SELECT SUM(loan_cnt) FROM monthly_book_stats WHERE stat_year = 2025), 1) AS 비율_퍼센트
 FROM
-    loans T1
+    monthly_book_stats S
 JOIN
-    book_copies T2 ON T1.cbk_id = T2.cbk_id
+    books B ON S.bk_id = B.bk_id
 JOIN
-    books T3 ON T2.bk_id = T3.bk_id
+    genres G ON B.gnr_id = G.gnr_id
+WHERE
+    S.stat_year = 2025 -- [변수] UI에서 선택한 연도
 GROUP BY
-    T3.bk_id, T3.bk_title
+    G.gnr_name
 ORDER BY
-    total_loan_count DESC
-LIMIT 5; -- 예시: Top 5 도서 조회
+    대출_권수 DESC;
 
--- 주제별 대출 비율
+
+-- -----------------------------------------------------
+-- 3. [서브 차트] 대출 베스트 Top 5 (Bar Chart)
+-- -----------------------------------------------------
+-- 화면 중단 우측 '대출 베스트 Top 5' 그래프
 SELECT
-    T4.gnr_name AS genre_name,
-    COUNT(T1.loan_id) AS total_loan_count 
+    B.bk_title      AS 서명,
+    SUM(S.loan_cnt) AS 총_대출수
 FROM
-    loans T1
+    monthly_book_stats S
 JOIN
-    book_copies T2 ON T1.cbk_id = T2.cbk_id
-JOIN
-    books T3 ON T2.bk_id = T3.bk_id            
-JOIN
-    genres T4 ON T3.gnr_id = T4.gnr_id         
+    books B ON S.bk_id = B.bk_id
+WHERE
+    S.stat_year = 2025 -- [변수] UI에서 선택한 연도
 GROUP BY
-    T4.gnr_name                                  
+    S.bk_id, B.bk_title
 ORDER BY
-    total_loan_count DESC;
+    총_대출수 DESC
+LIMIT 5;
 
---- 인덱스 생성 ---
--- 월별/기간별 대출 집계 속도 향상을 위한 인덱스
-CREATE INDEX idx_loans_date
-ON loans (loan_date);
 
--- 도서 순위 계산을 위한 조인 조건 최적화 
-CREATE INDEX idx_loans_cbk_id ON loans (cbk_id);
+-- -----------------------------------------------------
+-- 4. [검색] 도서 기본 정보 및 총 누적 통계 조회
+-- -----------------------------------------------------
+-- 화면 하단 검색창 입력 후 '검색' 버튼 클릭 시 실행 (카드 좌측 정보)
+SELECT
+    B.bk_title      AS 서명,
+    B.bk_auth       AS 저자,
+    B.bk_pub        AS 출판사,
+    -- [수정됨] 전체 누적이 아닌, '선택한 연도(2025)'의 대출 수만 합산
+    (SELECT IFNULL(SUM(loan_cnt), 0) 
+     FROM monthly_book_stats 
+     WHERE bk_id = B.bk_id 
+       AND stat_year = 2025  -- [변수] UI 선택 연도와 동일하게 필터링
+    ) AS 선택연도_총_대출수
+FROM
+    books B
+WHERE
+    B.bk_title LIKE CONCAT('%', '검색어', '%') -- [변수] 예: '코스모스'
+LIMIT 1;
 
-CREATE INDEX idx_copies_bk_id ON book_copies (bk_id);
+-- -----------------------------------------------------
+-- 5. [검색] 개별 도서 월별 대출 추이 (Mini Bar Chart)
+-- -----------------------------------------------------
+-- 화면 하단 검색 결과 카드 우측의 '미니 차트' 데이터
+SELECT
+    S.stat_month    AS 월,
+    S.loan_cnt      AS 대출_횟수
+FROM
+    monthly_book_stats S
+JOIN
+    books B ON S.bk_id = B.bk_id
+WHERE
+    B.bk_title LIKE CONCAT('%', '검색어', '%') -- [변수] 위와 동일한 검색어
+    AND S.stat_year = 2025                 -- [변수] 선택한 연도
+ORDER BY
+    S.stat_month ASC;
 
--- 특정 도서의 월별 통계 조회 가속화
-CREATE INDEX idx_monthly_stats_bk_id_ym 
-ON monthly_book_stats (bk_id, stat_year, stat_month);
+
+-- -----------------------------------------------------
+-- 6. [성능 최적화] 통계용 인덱스 생성 (DBA 적용 필요)
+-- -----------------------------------------------------
+-- 위 쿼리들이 빠르게 실행되도록 monthly_book_stats 테이블에 인덱스를 추가해야 합니다.
+CREATE INDEX idx_monthly_stats_year_month 
+ON monthly_book_stats (stat_year, stat_month);

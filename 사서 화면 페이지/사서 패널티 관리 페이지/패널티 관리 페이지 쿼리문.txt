@@ -4,15 +4,15 @@ SELECT
     T1.usr_id AS 사용자_ID,
     T1.usr_name AS 사용자_이름,
     T1.usr_dept AS 소속학과,
-    -- 누적된 제재 일수 합계 계산 (종료일 - 시작일)
-    SUM(TIMESTAMPDIFF(DAY, T2.pen_start, T2.pen_end)) AS total_sanction_days,
+    T1.usr_phone AS 연락처,
+
     -- 현재 유효한 제재가 있는지 확인
     MAX(CASE
-        WHEN T2.pen_end >= CURDATE() AND T2.pen_status = '적용 중' THEN '적용 중'
+        WHEN T2.pnl_end >= CURDATE() AND T2.pnl_actv = '적용 중' THEN '적용 중'
         ELSE '제재 없음'
     END) AS current_sanction_status,
     -- 현재 적용 중인 제재 중 가장 늦은 종료일
-    MAX(CASE WHEN T2.pen_end >= CURDATE() THEN T2.pen_end ELSE NULL END) AS current_sanction_end_date
+    MAX(CASE WHEN T2.pnl_end >= CURDATE() THEN T2.pnl_end ELSE NULL END) AS current_sanction_end_date
 FROM
     users T1
 LEFT JOIN
@@ -20,17 +20,17 @@ LEFT JOIN
 WHERE
     T1.usr_id = '검색할_사용자_ID' -- 또는 T1.usr_name = '검색할_사용자_이름'
 GROUP BY
-    T1.usr_id, T1.usr_name, T1.usr_dept;
+    T1.usr_id, T1.usr_name, T1.usr_dept, T1.usr_phone;
 
 -- 해당 사용자 패널티 이력 조회
 SELECT
-    pen_id AS No,
-    pen_type AS 제재_유형,
-    pen_reason AS 상세_사유,
-    pen_start AS 제재_시작일,
-    pen_end AS 제재_종료일,
+    pnl_id AS No,
+    pnl_type AS 위반_유형,
+    pnl_reason AS 상세_사유,
+    pnl_start AS 제재_시작일,
+    pnl_end AS 제재_종료일,
     CASE
-        WHEN pen_end >= CURDATE() AND pen_status = '적용 중' THEN '적용 중'
+        WHEN pnl_end >= CURDATE() AND pnl_actv = '적용 중' THEN '적용 중'
         ELSE '종료됨'
     END AS 상태
 FROM
@@ -38,7 +38,38 @@ FROM
 WHERE
     usr_id = '검색된_사용자_ID'
 ORDER BY
-    pen_start DESC;
+    pnl_start DESC;
+
+-- 현재 연체 중인 도서 정보 조회 (연체 도서 목록) / 패널티 일수 계산
+SELECT
+    T1.bk_title AS 서명,
+    T2.cbk_reg_no AS 등록번호,
+    T3.loan_date AS 대출일,
+    T3.loan_due AS 반납_예정일,
+    -- 오늘 날짜 기준으로 연체된 일수 계산 (CURDATE() - loan_due)
+    TIMESTAMPDIFF(DAY, T3.loan_due, CURDATE()) AS overdue_days_calculated
+FROM
+    books T1
+JOIN
+    book_copies T2 ON T1.bk_id = T2.bk_id
+JOIN
+    loans T3 ON T2.cbk_id = T3.cbk_id
+WHERE
+    T3.usr_id = '검색된_사용자_ID' -- 사용자 ID로 필터링
+    AND T3.loan_ret IS NULL             -- 아직 반납되지 않은 건
+    AND T3.loan_due < CURDATE()         -- 반납 예정일이 지난 건 (연체)
+ORDER BY
+    T3.loan_due ASC;
+
+-- 현재 연체중인 도서 권 수 조회
+SELECT
+    COUNT(*) AS overdue_book_count
+FROM
+    loans T1
+WHERE
+    T1.usr_id = '검색된_사용자_ID' -- [필터] 사용자 ID로 필터링
+    AND T1.loan_ret IS NULL         -- [필터] 아직 반납하지 않은 건 (현재 대출 중)
+    AND T1.loan_due < CURDATE();    -- [필터] 반납 예정일이 현재 날짜보다 지난 건 (연체)
 
 --- 인덱스 생성 ---
 -- 사용자 ID로 패널티 기록 조회를 위한 핵심 인덱스
@@ -47,11 +78,11 @@ ON penalties (usr_id);
 
 -- 제재 종료일 기준 상태 확인(유효/종료됨)을 위한 인덱스
 CREATE INDEX idx_penalties_end
-ON penalties (pen_end DESC);
+ON penalties (pnl_end DESC);
 
 -- 제재 상태별 필터링을 위한 인덱스
 CREATE INDEX idx_penalties_status
-ON penalties (pen_status);
+ON penalties (pnl_status);
 
 -- 사용자 이름으로 검색할 경우를 위한 users 테이블 인덱스
 CREATE INDEX idx_users_name

@@ -4,36 +4,35 @@ SELECT
     T1.usr_id AS 학번_사번,
     T1.usr_name AS 이름,
     T1.usr_dept AS 소속,
-    T1.usr_tel AS 연락처,
-    T1.usr_stat AS 신분_상태,
-    T1.usr_enrl AS 등록_상태, -- 재학/휴학/졸업 등
+    T1.usr_phon AS 연락처,
+    MAX(T4.log_datetime) AS 최근_방문일,
     -- 현재 대출 중인 도서 수 계산
     COUNT(T2.loan_id) AS current_loan_count,
     -- 현재 연체 중인 도서 수 계산
     SUM(CASE WHEN T2.loan_ret IS NULL AND T2.loan_due < CURDATE() THEN 1 ELSE 0 END) AS overdue_count,
     -- 현재 유효한 패널티 상태 여부 확인 (최신 종료일 기준)
     MAX(CASE
-        WHEN T3.pen_end >= CURDATE() AND T3.pen_status = '적용 중' THEN '제재 중'
+        WHEN T3.pnl_end >= CURDATE() AND T3.pnl_actv = '적용 중' THEN '제재 중'
         ELSE '정상'
-    END) AS sanction_status,
-    -- 최종 대출일 조회
-    MAX(T2.loan_date) AS latest_loan_date
+    END) AS sanction_status
 FROM
     users T1
 LEFT JOIN
     loans T2 ON T1.usr_id = T2.usr_id AND T2.loan_ret IS NULL -- 현재 대출 중인 건만 조인
 LEFT JOIN
     penalties T3 ON T1.usr_id = T3.usr_id -- 패널티 기록 조인
+LEFT JOIN
+    entry_logs T4 ON T1.usr_id = T4.usr_id -- 출입 로그 조인
 WHERE
     T1.usr_enrl = '재학' -- [필터] 재학생만 기본 조회
     -- AND T1.usr_name LIKE '%검색어%' -- [검색] 사용자 이름 검색
 GROUP BY
-    T1.usr_id, T1.usr_name, T1.usr_dept, T1.usr_tel, T1.usr_stat, T1.usr_enrl
+    T1.usr_id, T1.usr_name, T1.usr_dept, T1.usr_phon, T1.usr_stat, T1.usr_enrl
 ORDER BY
     T1.usr_id ASC;
 
 -- 총 회원수, 대출/연체/정지 중 회원수 조회
--- CTE: 각 사용자(usr_id)별 현재 대출/연체/제재 상태를 0 또는 1로 계산
+-- CTE: 각 사용자(usr_id)별 현재 대출/연체/제재 상태를 0 또는 1로 계산 / 이 쿼리가 실행되는 동안만 생성되는 UserStatus (가상의 결과 집합)
 WITH UserStatus AS (
     SELECT
         T1.usr_id,
@@ -42,7 +41,7 @@ WITH UserStatus AS (
         -- 2. 연체 중인 도서가 하나라도 있는지 여부
         MAX(CASE WHEN L.loan_ret IS NULL AND L.loan_due < CURDATE() THEN 1 ELSE 0 END) AS HasOverdueLoan,
         -- 3. 현재 유효한 제재가 하나라도 있는지 여부
-        MAX(CASE WHEN P.pen_end >= CURDATE() AND P.pen_status = '적용 중' THEN 1 ELSE 0 END) AS IsSanctioned
+        MAX(CASE WHEN P.pnl_end >= CURDATE() AND P.pnl_actv = '적용 중' THEN 1 ELSE 0 END) AS IsSanctioned
     FROM
         users T1
     LEFT JOIN
@@ -54,7 +53,7 @@ WITH UserStatus AS (
 )
 -- 최종 결과 집계
 SELECT
-    (SELECT COUNT(usr_id) FROM users) AS 총_회원수, -- users 테이블의 전체 레코드 수
+    (SELECT COUNT(usr_id) FROM users) AS 총_회원수,
     SUM(HasActiveLoan) AS 대출_중_회원수,
     SUM(HasOverdueLoan) AS 연체_중_회원수,
     SUM(IsSanctioned) AS 대출_정지_회원수
@@ -76,4 +75,8 @@ ON loans (usr_id, loan_ret, loan_due);
 
 -- 패널티 유효성 검사를 위한 인덱스
 CREATE INDEX idx_penalties_user_end_status
-ON penalties (usr_id, pen_end, pen_status);
+ON penalties (usr_id, pnl_end, pnl_actv);
+
+-- 최근 방문일 조회(MAX) 및 사용자별 조인을 위한 인덱스
+CREATE INDEX idx_entry_logs_user_date
+ON entry_logs (usr_id, log_datetime DESC);
