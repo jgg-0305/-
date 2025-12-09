@@ -6,20 +6,24 @@ INSERT INTO ai_analysis_log (
     error_msg, 
     exec_time
 ) VALUES (
-    'admin_01',                                 -- 로그인한 사서 ID (세션 정보)
-    '컴퓨터 공학과에서 가장 많이 빌린책 Top 5',                     -- 사용자가 입력한 자연어 질문
+    'admin01',                                  -- 로그인한 사서 ID
+    '컴퓨터공학과에서 가장 많이 빌린 책 Top 5',      -- 자연어 질문
+    
+    -- [수정됨] 실제 DDL에 맞는 실행 가능한 쿼리
     'SELECT
-    b.title AS book_title,
-    b.author,
-    COUNT(*) AS borrow_count
-FROM loans l
-JOIN students s ON l.student_id = s.student_id
-JOIN books b ON l.book_id = b.book_id
-WHERE s.major = '컴퓨터공학과'  -- 조회하고 싶은 특정 학과
-GROUP BY b.book_id, b.title, b.author
-ORDER BY borrow_count DESC
-LIMIT 5;', -- AI가 내부적으로 생성한 SQL (예시)
-    'bar',                                      -- 시각화된 차트 타입 (bar, line, doughnut 등)
-    NULL,                                       -- 성공했으므로 에러 메시지는 NULL
-    1500                                        -- 실행 소요 시간 (ms 단위)
+        T4.bk_title AS 서명,
+        T4.bk_auth  AS 저자,
+        COUNT(T1.loan_id) AS 대출횟수
+    FROM loans T1
+    JOIN users T2 ON T1.usr_id = T2.usr_id
+    JOIN book_copies T3 ON T1.cbk_id = T3.cbk_id
+    JOIN books T4 ON T3.bk_id = T4.bk_id
+    WHERE T2.usr_dept = "컴퓨터공학과"
+    GROUP BY T4.bk_id, T4.bk_title, T4.bk_auth
+    ORDER BY 대출횟수 DESC
+    LIMIT 5;', 
+    
+    'bar',   -- 차트 타입
+    NULL,    -- 에러 메시지 없음
+    120      -- 실행 시간 (ms)
 );
