@@ -96,7 +96,7 @@
         .btn-blue { color: var(--primary-blue); border-color: #b3c7f9; }
         .btn-blue:hover { background: #e3f2fd; }
 
-        /* --- [NEW] 모달 스타일 --- */
+        /* --- [4] 모달 스타일 --- */
         .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; display: none; align-items: center; justify-content: center; }
         .modal-container { background: #fff; width: 800px; max-width: 90%; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); overflow: hidden; display: flex; flex-direction: column; max-height: 90vh; }
         
@@ -145,9 +145,6 @@
         
         .btn-grad { background: #fff; border-color: #666; color: #666; }
         .btn-grad:hover { background: #666; color: #fff; }
-
-        .btn-save { background: var(--primary-blue); color: #fff; border: none; padding: 8px 20px; border-radius: 4px; font-weight: 700; cursor: pointer; }
-        .btn-save:hover { background: #1a3cb8; }
     </style>
 </head>
 <body>
@@ -170,7 +167,7 @@
             <div class="sidebar-title">사서 관리 메뉴</div>
             <nav class="menu-list">
                 <a href="librarian_final_v3.html"><i class="fa-solid fa-book"></i> 도서 검색/대출 관리</a>
-                <a href="#"><i class="fa-solid fa-arrow-right-arrow-left"></i> 상호대차 신청 관리</a>
+                <a href="admin_ill_management.html"><i class="fa-solid fa-arrow-right-arrow-left"></i> 상호대차 신청 관리</a>
                 <a href="admin_purchase_request.html"><i class="fa-solid fa-cart-plus"></i> 희망도서 신청 관리</a>
                 
                 <a href="#" class="active"><i class="fa-solid fa-users"></i> 학생(회원) 관리</a>
@@ -358,7 +355,7 @@
                     </div>
                     <div class="form-group">
                         <label>연락처</label>
-                        <input type="text" class="modal-input" value="010-1234-5678">
+                        <input type="text" class="modal-input" value="010-1234-5678" readonly>
                     </div>
                     <div class="form-group">
                         <label>최근 방문일</label>
@@ -395,8 +392,8 @@
                             <tr>
                                 <td>EM005678</td>
                                 <td>쉽게 배우는 알고리즘</td>
-                                <td style="color:#e74c3c; font-weight:700;">2025-12-01</td>
-                                <td><span class="status-badge badge-overdue">연체</span></td>
+                               <td>2025-12-10</td>
+                                <td><span style="color:#2552e3;">대출중</span></td>
                             </tr>
                         </tbody>
                     </table>
@@ -417,12 +414,8 @@
                     <button class="btn-status btn-stop" onclick="changeStatus('정지')">
                         <i class="fa-solid fa-ban"></i> 대출 정지
                     </button>
-                    <button class="btn-status btn-grad" onclick="changeStatus('졸업')">
-                        <i class="fa-solid fa-graduation-cap"></i> 졸업 처리
-                    </button>
                 </div>
-                
-            </div>
+                </div>
         </div>
     </div>
 
@@ -431,6 +424,7 @@
             // 실제 구현 시 userId로 데이터를 fetch해야 함
             document.getElementById('studentDetailModal').style.display = 'flex';
         }
+
         function closeModal() {
             document.getElementById('studentDetailModal').style.display = 'none';
         }
@@ -451,17 +445,53 @@
             }
         }
 
-        function changeStatus(status) {
-            if(confirm(`해당 회원을 [${status}] 상태로 변경하시겠습니까?`)) {
-                // UI 업데이트
-                const badge = document.getElementById('modalStatusBadge');
-                badge.innerText = status;
-                badge.className = 'status-badge'; 
-                if(status === '정상') badge.classList.add('badge-normal');
-                else if(status === '정지') badge.classList.add('badge-stop');
-                else badge.classList.add('badge-grad');
-                alert('상태가 변경되었습니다.');
+        function changeStatus(newStatus) {
+            let reason = null; // 정지 사유
+            let days = null;   // 정지 기간 (일수)
+
+            // [Case 1] '정지' 처리 시: 사유 & 기간 입력 받기
+            if (newStatus === '정지') {
+                // 1) 사유 입력
+                reason = prompt("대출 정지 사유를 입력해주세요.\n(예: 도서 훼손, 열람실 소란)");
+                if (reason === null) return; // 취소
+                if (reason.trim() === "") {
+                    alert("정지 사유는 필수 입력입니다.");
+                    return;
+                }
+
+                // 2) 기간 입력 (숫자만)
+                days = prompt("정지할 기간(일수)을 숫자로 입력해주세요.\n(예: 7, 30, 90)");
+                if (days === null) return; // 취소
+                
+                // 숫자 유효성 검사
+                if (isNaN(days) || days.trim() === "" || Number(days) <= 0) {
+                    alert("올바른 일수를 입력해주세요.");
+                    return;
+                }
+            } 
+            
+            // [Case 2] 정상/졸업 처리는 확인창만 띄움
+            else {
+                if (!confirm(`해당 회원을 [${newStatus}] 상태로 변경하시겠습니까?`)) {
+                    return;
+                }
             }
+
+            // --- [API 전송 시뮬레이션] ---
+            let msg = `처리가 완료되었습니다.\n상태: ${newStatus}`;
+            if (newStatus === '정지') {
+                msg += `\n사유: ${reason}\n기간: ${days}일간 정지`;
+            }
+            alert(msg);
+
+            // UI 뱃지 업데이트 (시뮬레이션)
+            const badge = document.getElementById('modalStatusBadge');
+            badge.innerText = newStatus;
+            badge.className = 'status-badge'; 
+            
+            if(newStatus === '정상') badge.classList.add('badge-normal');
+            else if(newStatus === '정지') badge.classList.add('badge-stop');
+            else badge.classList.add('badge-grad');
         }
     </script>
 
