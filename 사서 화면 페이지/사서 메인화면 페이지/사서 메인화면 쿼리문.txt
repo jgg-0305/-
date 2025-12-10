@@ -75,7 +75,7 @@ FROM
             vol_desc AS title,
             -- [수정] DATE 타입을 DATETIME으로 변환
             CAST(CONCAT(vol_date, ' 00:00:00') AS DATETIME) AS reg_date,
-            usr_id
+            usr_name
         FROM volunteer_activities 
         WHERE vol_stat = '대기'
     ) AS T
