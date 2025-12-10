@@ -51,7 +51,7 @@ FROM
             '상호대차' AS work_type,
             ill_title AS title,
             ill_req_date AS reg_date, -- 이미 DATETIME
-            usr_name
+            usr_id
         FROM inter_library_loans 
         WHERE ill_stat = '신청중'
         
@@ -63,7 +63,7 @@ FROM
             req_title AS title,
             -- [수정] DATE 타입을 DATETIME으로 변환 (시간은 00:00:00으로)
             CAST(CONCAT(req_date, ' 00:00:00') AS DATETIME) AS reg_date,
-            usr_name
+            usr_id
         FROM requests 
         WHERE req_stat = '대기'
         
@@ -75,7 +75,7 @@ FROM
             vol_desc AS title,
             -- [수정] DATE 타입을 DATETIME으로 변환
             CAST(CONCAT(vol_date, ' 00:00:00') AS DATETIME) AS reg_date,
-            usr_name
+            usr_id
         FROM volunteer_activities 
         WHERE vol_stat = '대기'
     ) AS T
