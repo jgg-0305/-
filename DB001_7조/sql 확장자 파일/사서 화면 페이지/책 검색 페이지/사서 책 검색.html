@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>도서/복본 관리(사서용) - 동의대 도서관</title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        /* --- 공통 변수 --- */
+        :root {
+            --primary-blue: #2552e3;
+            --admin-dark: #1e293b; 
+            --bg-gray: #f1f5f9;
+            --text-dark: #333;
+            --border-color: #e2e8f0;
+            --avail-green: #10ac84;
+            --loan-red: #e74c3c;
+            --reserve-blue: #0984e3;
+            --table-header: #f8fafc;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Noto Sans KR', sans-serif; background-color: var(--bg-gray); color: var(--text-dark); }
+        a { text-decoration: none; color: inherit; }
+        ul { list-style: none; }
+        
+        .container { max-width: 1400px; margin: 0 auto; padding: 0 20px; }
+
+        /* --- 헤더 --- */
+        header { background: #fff; padding: 15px 0; border-bottom: 1px solid #ddd; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        .header-inner { display: flex; justify-content: space-between; align-items: center; }
+        .logo { font-size: 22px; font-weight: 700; color: var(--admin-dark); display: flex; align-items: center; gap: 10px; }
+        .admin-badge { background: var(--admin-dark); color: #fff; padding: 4px 10px; border-radius: 4px; font-size: 12px; margin-left: 10px; }
+        .logout-btn { font-size: 14px; color: #666; font-weight: 500; }
+        .logout-btn:hover { text-decoration: underline; color: var(--loan-red); }
+
+        /* --- 레이아웃 --- */
+        .admin-layout { display: flex; gap: 30px; padding: 30px 0; }
+
+        /* 사이드바 */
+        .sidebar { width: 250px; flex-shrink: 0; background: #fff; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.03); height: fit-content; }
+        .sidebar-title { background: var(--admin-dark); color: #fff; padding: 15px 20px; font-weight: 700; font-size: 16px; border-radius: 8px 8px 0 0; }
+        .menu-list a { display: block; padding: 15px 20px; border-bottom: 1px solid #eee; font-size: 14px; color: #444; transition: 0.2s; }
+        .menu-list a:hover { background: #f8f9fa; color: var(--primary-blue); padding-left: 25px; }
+        .menu-list a.active { background: #eef2ff; color: var(--primary-blue); font-weight: 700; border-left: 4px solid var(--primary-blue); }
+        .menu-list i { width: 25px; text-align: center; margin-right: 5px; color: #8898aa; }
+        .menu-list a.active i { color: var(--primary-blue); }
+
+        /* 메인 컨텐츠 */
+        .main-content { flex: 1; }
+        .content-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .page-title { font-size: 24px; font-weight: 700; color: var(--text-dark); }
+
+        /* 검색 패널 */
+        .search-panel { background: #fff; padding: 25px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.03); margin-bottom: 30px; display: flex; gap: 10px; align-items: center; }
+        .search-select { padding: 12px; border: 1px solid #ccc; border-radius: 4px; width: 150px; }
+        .search-input { flex: 1; padding: 12px; border: 1px solid #ccc; border-radius: 4px; }
+        .btn-search { background: var(--admin-dark); color: #fff; padding: 12px 30px; border: none; border-radius: 4px; font-weight: 700; cursor: pointer; }
+
+        /* --- 도서 카드 --- */
+        .book-list { display: flex; flex-direction: column; gap: 20px; }
+
+        .admin-book-card { 
+            background: #fff; border-radius: 8px; border: 1px solid #e2e8f0; 
+            padding: 25px; transition: 0.2s; 
+        }
+        .admin-book-card:hover { box-shadow: 0 5px 15px rgba(0,0,0,0.05); border-color: var(--primary-blue); }
+
+        /* 책 마스터 정보 */
+        .book-master-info { display: flex; gap: 25px; margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px solid #eee; }
+        .bk-img { width: 90px; height: 130px; border-radius: 4px; border: 1px solid #eee; flex-shrink: 0; overflow: hidden; }
+        .bk-img img { width: 100%; height: 100%; object-fit: cover; }
+        
+        .bk-info { flex: 1; }
+        .bk-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; }
+        .bk-title { font-size: 20px; font-weight: 700; color: #222; }
+        
+        /* 통합 상태 뱃지 */
+        .master-status-badge { font-size: 14px; font-weight: 700; padding: 6px 15px; border-radius: 20px; }
+        .ms-avail { background: #e6fcf5; color: var(--avail-green); border: 1px solid #b2f2bb; }
+        .ms-loan { background: #fff5f5; color: var(--loan-red); border: 1px solid #ffc9c9; }
+
+        .bk-meta { font-size: 14px; color: #555; line-height: 1.6; }
+        .bk-meta span { margin-right: 15px; }
+
+        /* 소장 자료 목록 (테이블) */
+        .copy-list-title { font-size: 14px; font-weight: 700; color: #444; margin-bottom: 10px; display: flex; align-items: center; gap: 5px; }
+        
+        .copy-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        .copy-table th { background: var(--table-header); text-align: left; padding: 10px 15px; color: #555; font-weight: 600; border-top: 1px solid #ddd; border-bottom: 1px solid #ddd; }
+        .copy-table td { padding: 12px 15px; border-bottom: 1px solid #eee; vertical-align: middle; }
+        .copy-table tr:last-child td { border-bottom: none; }
+        
+        /* 텍스트 컬러 */
+        .st-text-avail { color: var(--avail-green); font-weight: 700; cursor: help; border-bottom: 1px dashed var(--avail-green); }
+        .st-text-loan { color: var(--loan-red); font-weight: 700; }
+
+        /* 대출자/예약자 태그 */
+        .borrower-mini-tag { 
+            display: inline-block; background: #fff9db; padding: 4px 8px; border-radius: 4px; 
+            border: 1px solid #f0e6cc; color: #d63031; font-weight: 500; margin-left: 10px; margin-bottom: 4px;
+        }
+        .reserver-mini-tag {
+            display: inline-block; background: #e3f2fd; padding: 4px 8px; border-radius: 4px; 
+            border: 1px solid #bbdefb; color: var(--reserve-blue); font-weight: 500; margin-left: 10px;
+        }
+        .reserver-mini-tag i { margin-right: 4px; }
+
+        /* 액션 버튼 */
+        .btn-sm { padding: 6px 12px; border-radius: 4px; font-size: 12px; font-weight: 500; border: none; cursor: pointer; transition: 0.2s; margin-right: 5px; }
+        .btn-loan-action { background: var(--avail-green); color: #fff; }
+        .btn-loan-action:hover { background: #0b8f6d; }
+        .btn-return-action { background: var(--loan-red); color: #fff; }
+        .btn-return-action:hover { background: #c0392b; }
+        .btn-edit-action { background: #f1f1f1; color: #333; border: 1px solid #ddd; }
+
+        /* 툴팁 스타일 */
+        .location-tooltip-wrapper { position: relative; display: inline-block; }
+        .location-map-popup {
+            visibility: hidden; width: 200px; background-color: #fff; color: #333; text-align: center; border-radius: 6px; padding: 15px;
+            position: absolute; z-index: 100; bottom: 150%; left: 50%; transform: translateX(-50%);
+            box-shadow: 0 5px 20px rgba(0,0,0,0.15); border: 1px solid #cbd5e1; opacity: 0; transition: opacity 0.2s, bottom 0.2s;
+        }
+        .location-tooltip-wrapper:hover .location-map-popup { visibility: visible; opacity: 1; bottom: 130%; }
+        .location-map-popup::after {
+            content: ""; position: absolute; top: 100%; left: 50%; margin-left: -6px; border-width: 6px; border-style: solid; border-color: #fff transparent transparent transparent;
+        }
+        .tooltip-location-main { font-size: 14px; font-weight: 700; color: #333; margin-bottom: 5px; }
+        .tooltip-location-sub { font-size: 12px; color: #666; }
+
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="container header-inner">
+            <a href="#" class="logo">
+                <i class="fa-solid fa-book-open"></i> 동의대 도서관 <span class="admin-badge">사서</span>
+            </a>
+            <div>
+                <span style="margin-right: 20px; font-size: 14px;">관리자 <b>홍길동</b>님 접속중</span>
+                <a href="index.html" class="logout-btn"><i class="fa-solid fa-arrow-right-from-bracket"></i> 로그아웃</a>
+            </div>
+        </div>
+    </header>
+
+    <div class="container admin-layout">
+        
+        <aside class="sidebar">
+            <div class="sidebar-title">사서 관리 메뉴</div>
+            <nav class="menu-list">
+                <a href="#" class="active"><i class="fa-solid fa-book"></i> 도서 검색/대출 관리</a>
+                
+                <a href="#"><i class="fa-solid fa-arrow-right-arrow-left"></i> 상호대차 신청 관리</a>
+                
+                <a href="#"><i class="fa-solid fa-cart-plus"></i> 희망도서 신청 관리</a>
+                
+                <a href="#"><i class="fa-solid fa-users"></i> 학생(회원) 관리</a>
+                
+                <a href="#"><i class="fa-solid fa-ban"></i> 패널티/제재 관리</a>
+                
+                <a href="#"><i class="fa-solid fa-hand-holding-heart"></i> 봉사활동 관리</a>
+                
+                <a href="#"><i class="fa-solid fa-bullhorn"></i> 공지사항 관리</a>
+                
+                <a href="#"><i class="fa-solid fa-chart-pie"></i> 도서관 통계</a>
+            </nav>
+        </aside>
+
+        <main class="main-content">
+            
+            <div class="content-header">
+                <h2 class="page-title">통합 도서 검색 및 대출 관리</h2>
+                <button class="btn-sm" style="padding: 10px 20px; background:var(--primary-blue); color:#fff; font-size:14px;">
+                    <i class="fa-solid fa-plus"></i> 신규 도서 추가
+                </button>
+            </div>
+
+            <div class="search-panel">
+                <select class="search-select">
+                    <option>전체</option>
+                    <option>서명</option>
+                    <option>등록번호</option>
+                    <option>청구기호</option>
+                    <option>대출자</option>
+                </select>
+                <input type="text" class="search-input" placeholder="검색어를 입력하세요 (도서명, 회원명, 등록번호 등)">
+                <button class="btn-search">검색</button>
+            </div>
+
+            <div class="book-list">
+
+                <div class="admin-book-card">
+                    <div class="book-master-info">
+                        <div class="bk-img"><img src="https://contents.kyobobook.co.kr/sih/fit-in/458x0/pdt/9791196752521.jpg" alt="표지"></div>
+                        <div class="bk-info">
+                            <div class="bk-header">
+                                <div class="bk-title">데이터 사이언스 입문</div>
+                                <span class="master-status-badge ms-avail">대출 가능 (2/3권)</span>
+                            </div>
+                            <div class="bk-meta">
+                                <span><b>저자:</b> 김진, 최정아</span>
+                                <span><b>출판사:</b> 이지스퍼블리싱</span>
+                                <span><b>발행년도:</b> 2024</span>
+                                <span><b>ISBN:</b> 9791196752521</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="copy-list-title"><i class="fa-solid fa-list-ul"></i> 소장 자료 목록 (3권)</div>
+                    <table class="copy-table">
+                        <thead>
+                            <tr>
+                                <th width="15%">등록번호</th>
+                                <th width="20%">청구기호</th>
+                                <th width="15%">소장위치</th>
+                                <th width="30%">도서상태</th> 
+                                <th width="20%">관리</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr style="background-color: #fffaf0;"> 
+                                <td><strong>EM001001</strong> <span style="font-size:11px; color:#999;">(복본1)</span></td>
+                                <td>005.74 김진데 c.1</td>
+                                <td>제1열람실</td>
+                                <td>
+                                    <span class="st-text-loan">대출중</span>
+                                    <div class="borrower-mini-tag">
+                                        박지민 (20201234)<br>
+                                        <span style="font-size:11px; color:#555;">~25.12.10 반납예정</span>
+                                    </div>
+                                </td>
+                                <td>
+                                    <button class="btn-sm btn-return-action" onclick="alert('반납 처리하시겠습니까?')">반납처리</button>
+                                    <button class="btn-sm btn-edit-action">수정</button>
+                                </td>
+                            </tr>
+                            
+                            <tr>
+                                <td><strong>EM001002</strong> <span style="font-size:11px; color:#999;">(복본2)</span></td>
+                                <td>005.74 김진데 c.2</td>
+                                <td>제1열람실</td>
+                                <td>
+                                    <div class="location-tooltip-wrapper">
+                                        <span class="st-text-avail">대출가능 (비치중)</span>
+                                        <div class="location-map-popup">
+                                            <div class="tooltip-location-main">
+                                                <i class="fa-solid fa-location-dot" style="color:#e74c3c;"></i> 제1열람실 H-3 서가
+                                            </div>
+                                            <div class="tooltip-location-sub">위에서 3번째 칸</div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <button class="btn-sm btn-loan-action">대출처리</button>
+                                    <button class="btn-sm btn-edit-action">수정</button>
+                                </td>
+                            </tr>
+                            
+                            <tr>
+                                <td><strong>EM001003</strong> <span style="font-size:11px; color:#999;">(복본3)</span></td>
+                                <td>005.74 김진데 c.3</td>
+                                <td>제1열람실</td>
+                                <td>
+                                    <div class="location-tooltip-wrapper">
+                                        <span class="st-text-avail">대출가능 (비치중)</span>
+                                        <div class="location-map-popup">
+                                            <div class="tooltip-location-main">
+                                                <i class="fa-solid fa-location-dot" style="color:#e74c3c;"></i> 제1열람실 H-3 서가
+                                            </div>
+                                            <div class="tooltip-location-sub">위에서 3번째 칸</div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <button class="btn-sm btn-loan-action">대출처리</button>
+                                    <button class="btn-sm btn-edit-action">수정</button>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="admin-book-card">
+                    <div class="book-master-info">
+                        <div class="bk-img"><img src="https://cdn-prod.hanbit.co.kr/books/B4416755821_l.jpg" alt="표지"></div>
+                        <div class="bk-info">
+                            <div class="bk-header">
+                                <div class="bk-title">파이썬 프로그래밍</div>
+                                <span class="master-status-badge ms-loan">대출 불가 (0/2권)</span>
+                            </div>
+                            <div class="bk-meta">
+                                <span><b>저자:</b> 최성철</span>
+                                <span><b>출판사:</b> 한빛미디어</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="copy-list-title"><i class="fa-solid fa-list-ul"></i> 소장 자료 목록 (2권)</div>
+                    <table class="copy-table">
+                        <thead>
+                            <tr>
+                                <th width="15%">등록번호</th>
+                                <th width="20%">청구기호</th>
+                                <th width="15%">소장위치</th>
+                                <th width="30%">도서상태</th>
+                                <th width="20%">관리</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr style="background-color: #fffaf0;">
+                                <td><strong>EM002001</strong> <span style="font-size:11px; color:#999;">(복본1)</span></td>
+                                <td>005.13 최성파 c.1</td>
+                                <td>제2열람실</td>
+                                <td>
+                                    <span class="st-text-loan">대출중</span>
+                                    <div class="borrower-mini-tag">
+                                        김태형 (20215555)<br>
+                                        <span style="font-size:11px; color:#555;">~25.12.05 반납예정</span>
+                                    </div>
+                                </td>
+                                <td>
+                                    <button class="btn-sm btn-return-action">반납처리</button>
+                                    <button class="btn-sm btn-edit-action">수정</button>
+                                </td>
+                            </tr>
+                            <tr style="background-color: #fffaf0;">
+                                <td><strong>EM002002</strong> <span style="font-size:11px; color:#999;">(복본2)</span></td>
+                                <td>005.13 최성파 c.2</td>
+                                <td>제2열람실</td>
+                                <td>
+                                    <span class="st-text-loan" style="margin-right:5px;">대출중</span>
+                                    <br>
+                                    <div class="borrower-mini-tag">
+                                        이철수 (20231212)
+                                    </div>
+                                    <div class="reserver-mini-tag">
+                                        <i class="fa-solid fa-clock"></i> 예약: 전정국 (1순위)
+                                    </div>
+                                </td>
+                                <td>
+                                    <button class="btn-sm btn-return-action">반납처리</button>
+                                    <button class="btn-sm btn-edit-action">수정</button>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+            </div>
+        </main>
+    </div>
+
+</body>
+</html>

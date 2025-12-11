@@ -1,0 +1,110 @@
+USE library_system;
+-- -----------------------------------------------------
+-- 1-1. 특정 열람실의 좌석 배치도 및 상태 조회
+-- -----------------------------------------------------
+SELECT
+    s.seat_id,
+    s.seat_num,     -- 좌석 번호 (A-01, B-05 등)
+    s.seat_stat,    -- 상태 ('사용가능', '사용중', '수리중')
+    
+    -- 현재 이 좌석을 이용 중인 사용자 이름 (관리자용, 학생에겐 마스킹 처리 필요)
+    (SELECT u.usr_name 
+     FROM seat_reservations sr 
+     JOIN users u ON sr.usr_id = u.usr_id 
+     WHERE sr.seat_id = s.seat_id AND sr.res_stat = '이용중' 
+     LIMIT 1) AS current_user_name
+FROM
+    seats s
+WHERE
+    s.seat_room = '제1열람실'; -- [변수] 열람실 이름
+
+
+-- -----------------------------------------------------
+-- 1-2. 열람실 현황 통계 (잔여 좌석 확인)
+-- -----------------------------------------------------
+SELECT
+    COUNT(*) AS 총_좌석수,
+    
+    -- [수정] ENUM 값 한글화 ('occupied' -> '사용중')
+    SUM(CASE WHEN seat_stat = '사용중' THEN 1 ELSE 0 END) AS 사용중_좌석,
+    
+    -- [수정] ENUM 값 한글화 ('available' -> '사용가능')
+    SUM(CASE WHEN seat_stat = '사용가능' THEN 1 ELSE 0 END) AS 잔여_좌석,
+    
+    -- 잔여석 비율 계산
+    ROUND(SUM(CASE WHEN seat_stat = '사용가능' THEN 1 ELSE 0 END) * 100.0 / COUNT(*), 1) AS 잔여율
+FROM
+    seats
+WHERE
+    seat_room = '제1열람실'; -- [변수] 열람실 이름
+
+
+-- =====================================================
+-- 2. [입실] 좌석 예약 확정 (트랜잭션 필수)
+-- =====================================================
+START TRANSACTION;
+
+    -- [Step 1] 물리적 좌석 선점 (상태 변경)
+    -- [수정] ENUM 값 한글화 ('available' -> '사용가능', 'occupied' -> '사용중')
+    UPDATE seats
+    SET seat_stat = '사용중'
+    WHERE 
+        seat_id = 101       -- [변수] 선택한 좌석 ID
+        AND seat_stat = '사용가능'; -- [중요] 동시성 제어 조건
+
+    -- [Application Check] 
+    -- 위 UPDATE 문이 영향을 준 행(Row)이 0개라면 -> "이미 예약된 좌석입니다" 에러 & ROLLBACK
+
+    -- [Step 2] 예약 이력(Log) 생성
+    -- [수정] ENUM 값 한글화 (res_stat: '이용중')
+    INSERT INTO seats (seat_id, seat_room, seat_num, seat_stat)
+    VALUES (
+    101,                  -- seat_id와 일치시켜야 함
+    '제1열람실',           -- 열람실 이름 (예시)
+    'A-01',               -- 좌석 번호 (예시)
+    '사용가능'             -- 초기 상태
+	);
+    
+    INSERT INTO users (usr_id, usr_name, usr_dept, usr_stat, usr_enrl)
+    VALUES (
+    '20233849',            -- usr_id와 일치시켜야 함
+    '조기강',              -- 이름 (예시)
+    '컴퓨터공학과',        -- 학과 (예시)
+    '정상',                 -- 상태 (예시)
+	TRUE
+    );
+
+COMMIT;
+
+
+-- =====================================================
+-- 3. [퇴실] 좌석 반납 처리 (트랜잭션 필수)
+-- =====================================================
+START TRANSACTION;
+
+    -- [Step 1] 예약 이력 종료
+    -- [수정] ENUM 값 한글화 ('이용중' -> '반납완료')
+    UPDATE seat_reservations 
+    SET 
+        res_end = NOW(), 
+        res_stat = '반납완료'
+    WHERE 
+        usr_id = 20233849          -- [변수] 로그인한 사용자 ID
+        AND res_stat = '이용중';
+
+    -- [Step 2] 물리적 좌석 상태 원상복구
+    -- [수정] ENUM 값 한글화 ('사용중' -> '사용가능')
+    UPDATE seats 
+    SET seat_stat = '사용가능'
+    WHERE 
+        seat_id = (
+            -- 방금 종료시킨 예약 건의 좌석 ID를 조회
+            SELECT seat_id 
+            FROM seat_reservations 
+            WHERE usr_id = 20233849       -- [변수] 사용자 ID
+              AND res_stat = '반납완료' 
+            ORDER BY res_end DESC 
+            LIMIT 1
+        );
+
+COMMIT;

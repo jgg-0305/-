@@ -1,0 +1,95 @@
+-- -----------------------------------------------------
+-- 1. [차트] 기간별 방문자 추이 (Line Chart)
+-- -----------------------------------------------------
+-- UI 옵션(연간/월간)에 따라 쿼리 분기 필요
+
+-- [Case A] 연간 통계 (월별 집계)
+SELECT
+    MONTH(log_time) AS 월,
+    COUNT(*)        AS 방문자수
+FROM
+    entry_logs
+WHERE
+    log_type = '입실'  -- [수정] DDL에 맞춘 한글 값
+    AND YEAR(log_time) = '2025' -- [변수] 선택한 연도 (예: 2025)
+GROUP BY
+    MONTH(log_time)
+ORDER BY
+    월 ASC;
+
+-- [Case B] 월간 통계 (일별 집계)
+SELECT
+    DAY(log_time)   AS 일,
+    COUNT(*)        AS 방문자수
+FROM
+    entry_logs
+WHERE
+    log_type = '입실'
+    AND YEAR(log_time) = '2025'  -- [변수] 연도
+    AND MONTH(log_time) = '10' -- [변수] 월
+GROUP BY
+    DAY(log_time)
+ORDER BY
+    일 ASC;
+
+
+-- -----------------------------------------------------
+-- 2. [차트] 방문왕 랭킹 Top 10 (Bar Chart)
+-- -----------------------------------------------------
+SELECT
+    U.usr_name      AS 이름,
+    U.usr_dept      AS 학과,
+    COUNT(E.log_id) AS 방문횟수
+FROM
+    entry_logs E
+JOIN
+    users U ON E.usr_id = U.usr_id
+WHERE
+    E.log_type = '입실'
+    AND YEAR(E.log_time) = '2025' -- [변수] 선택한 연도 (랭킹 범위 제한)
+GROUP BY
+    U.usr_id, U.usr_name, U.usr_dept
+ORDER BY
+    방문횟수 DESC
+LIMIT 10;
+
+
+-- -----------------------------------------------------
+-- 3. [검색] 개별 학생 방문 기록 조회 (우측 카드)
+-- -----------------------------------------------------
+-- 화면 표시 항목: 이름, 학번, 학과, [선택 기간 방문 횟수], [총 누적 시간]
+
+SELECT
+    U.usr_name      AS 이름,
+    U.usr_id        AS 학번,
+    U.usr_dept      AS 학과,
+    
+    -- 1) 선택 기간 방문 횟수
+    (SELECT COUNT(*) FROM entry_logs 
+     WHERE usr_id = U.usr_id AND log_type = '입실' AND YEAR(log_time) = 2025) AS 기간_방문횟수,
+     
+    -- 2) 총 누적 체류 시간 (입실/퇴실 짝이 맞는 경우만 계산)
+    -- (주의: 대용량 로그에서 이 계산은 부하가 클 수 있으므로, 별도 통계 테이블 권장. 
+    --  여기서는 실시간 계산 로직 예시입니다.)
+    (
+        SELECT 
+            ROUND(SUM(TIMESTAMPDIFF(MINUTE, E_IN.log_time, E_OUT.log_time)) / 60, 1)
+        FROM 
+            entry_logs E_IN
+        JOIN 
+            entry_logs E_OUT ON E_IN.usr_id = E_OUT.usr_id 
+            AND E_OUT.log_time > E_IN.log_time
+            -- 입실 바로 다음의 퇴실 기록을 찾음 (간단화된 로직)
+        WHERE 
+            E_IN.usr_id = U.usr_id 
+            AND E_IN.log_type = '입실' 
+            AND E_OUT.log_type = '퇴실'
+            AND DATE(E_IN.log_time) = DATE(E_OUT.log_time) -- 같은 날짜 가정
+    ) AS 총_누적시간_Hour
+
+FROM
+    users U
+WHERE
+    U.usr_id = 20233849 OR U.usr_name = '조기강'; -- [변수] 검색어 (학번 또는 이름)
+
+

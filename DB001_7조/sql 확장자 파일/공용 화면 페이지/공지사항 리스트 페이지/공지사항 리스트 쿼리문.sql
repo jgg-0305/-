@@ -1,0 +1,78 @@
+-----------------------------------------------------
+USE library_system;
+
+-- 상단 필독 출력문
+
+SELECT 
+    n.ntc_id,
+    n.ntc_title,
+    
+    -- [화면 로직] 값이 있으면 클립 아이콘 표시, 없으면 숨김
+    n.ntc_file,       
+    
+    -- [화면 로직] 날짜 포맷 (예: 2025.12.01)
+    DATE_FORMAT(n.ntc_date, '%Y.%m.%d') AS ntc_date_fmt,
+    
+    n.ntc_views,
+    l.lib_name AS writer_name
+FROM 
+    notices n
+JOIN 
+    librarians l ON n.lib_id = l.lib_id
+WHERE 
+    n.ntc_important = 1  --  필독 갯수 조회
+ORDER BY 
+    n.ntc_date DESC;     -- 최신 필독 공지가 가장 위에
+
+-- 2. 일반 공지사항 조회
+
+SELECT 
+    n.ntc_id,
+    n.ntc_title,
+    n.ntc_file,
+    DATE_FORMAT(n.ntc_date, '%Y.%m.%d') AS ntc_date_fmt,
+    n.ntc_views,
+    l.lib_name AS writer_name,
+    -- (백엔드에서 '오늘 날짜 - 작성일 < 3일'이면 New 배지 표시)
+    n.ntc_date
+FROM 
+    notices n
+JOIN 
+    librarians l ON n.lib_id = l.lib_id
+WHERE 
+    n.ntc_important = 0   -- ★ 핵심: 필독이 아닌 것만 조회
+    
+    -- [검색 조건] 사용자가 검색어를 입력했을 경우 (AND 조건 추가)
+    -- AND n.ntc_title LIKE CONCAT('%', ?, '%')  -- 제목 검색 시
+    -- AND n.ntc_content LIKE CONCAT('%', ?, '%') -- 내용 검색 시
+
+ORDER BY 
+    n.ntc_date DESC,   -- 최신순 정렬
+    n.ntc_id DESC      -- (날짜 같으면) 최신 등록순
+LIMIT 10 OFFSET 0;     -- 1페이지: OFFSET 0, 2페이지: OFFSET 10 ...
+
+
+SELECT 
+    COUNT(*) AS total_count 
+FROM 
+    notices 
+WHERE 
+    ntc_important = 0;
+
+-- 검색
+
+SELECT 
+    n.ntc_id, n.ntc_title, n.ntc_file, n.ntc_important,
+    DATE_FORMAT(n.ntc_date, '%Y.%m.%d') AS ntc_date_fmt,
+    n.ntc_views,
+    l.lib_name AS writer_name
+FROM notices n
+JOIN librarians l ON n.lib_id = l.lib_id
+WHERE 
+    n.ntc_important = 0             -- 필독 제외 (리스트 영역)
+    AND n.ntc_title LIKE CONCAT('%', '이용시간', '%')  -- ★ 제목 검색
+ORDER BY n.ntc_date DESC, n.ntc_id DESC
+LIMIT 10 OFFSET 0;
+
+
+

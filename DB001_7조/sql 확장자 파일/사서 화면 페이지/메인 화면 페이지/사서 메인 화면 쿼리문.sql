@@ -1,0 +1,97 @@
+USE library_system;
+-- -----------------------------------------------------
+-- 1. [헤더] 사서 이름 조회
+-- -----------------------------------------------------
+SELECT lib_name FROM librarians WHERE lib_id = 'admin01'; -- [변수] 로그인 ID
+
+
+-- -----------------------------------------------------
+-- 2. [상단 카드] 업무 현황 카운트 (ENUM 값 DDL 일치)
+-- -----------------------------------------------------
+-- 2-1. 상호대차 신청 대기 (ILL)
+SELECT COUNT(*) AS cnt_ill 
+FROM inter_library_loans WHERE ill_stat = '신청중';
+
+-- 2-2. 희망도서 승인 대기 (Request)
+SELECT COUNT(*) AS cnt_req 
+FROM requests WHERE req_stat = '대기';
+
+-- 2-3. 봉사활동 신청 대기 (Volunteer)
+SELECT COUNT(*) AS cnt_vol 
+FROM volunteer_activities WHERE vol_stat = '대기';
+
+-- 2-4. 현재 연체 중인 '회원' 수
+SELECT COUNT(DISTINCT usr_id) AS cnt_overdue_users
+FROM loans
+WHERE loan_ret IS NULL AND loan_due < CURDATE();
+
+
+-- -----------------------------------------------------
+-- 3. [메인] 미처리 업무 통합 리스트 (최신 신청 내역)
+-- -----------------------------------------------------
+-- 서로 다른 3개 테이블(상호대차, 희망도서, 봉사)을 합쳐서
+-- 날짜순(오래된 것부터)으로 정렬하여 '처리해야 할 일' 목록을 보여줌
+SELECT 
+    T.work_type     AS 업무구분,   -- (상호대차/희망도서/봉사활동)
+    T.title         AS 내용,       -- (책 제목 or 활동 내용)
+    U.usr_name      AS 신청자명,
+    -- 화면 표시용 날짜 포맷 (예: 2025-12-05 14:30 신청)
+    DATE_FORMAT(T.reg_date, '%Y-%m-%d %H:%i') AS 신청일시,
+    
+    -- [추가] 화면의 뱃지 색상 매핑용 코드 (bg-ill, bg-req, bg-vol)
+    CASE 
+        WHEN T.work_type = '상호대차' THEN 'bg-ill'
+        WHEN T.work_type = '희망도서' THEN 'bg-req'
+        ELSE 'bg-vol'
+    END AS 뱃지_클래스
+FROM 
+    (
+        -- 1. 상호대차 (신청중)
+        SELECT 
+            '상호대차' AS work_type,
+            ill_title AS title,
+            ill_req_date AS reg_date, -- 이미 DATETIME
+            usr_id
+        FROM inter_library_loans 
+        WHERE ill_stat = '신청중'
+        
+        UNION ALL
+        
+        -- 2. 희망도서 (대기)
+        SELECT 
+            '희망도서' AS work_type,
+            req_title AS title,
+            -- [수정] DATE 타입을 DATETIME으로 변환 (시간은 00:00:00으로)
+            CAST(CONCAT(req_date, ' 00:00:00') AS DATETIME) AS reg_date,
+            usr_id
+        FROM requests 
+        WHERE req_stat = '대기'
+        
+        UNION ALL
+        
+        -- 3. 봉사활동 (대기)
+        SELECT 
+            '봉사활동' AS work_type,
+            vol_desc AS title,
+            -- [수정] DATE 타입을 DATETIME으로 변환
+            CAST(CONCAT(vol_date, ' 00:00:00') AS DATETIME) AS reg_date,
+            usr_id
+        FROM volunteer_activities 
+        WHERE vol_stat = '대기'
+    ) AS T
+JOIN 
+    users U ON T.usr_id = U.usr_id
+ORDER BY 
+    T.reg_date ASC  -- 오래된 요청부터 처리하도록 오름차순 정렬
+LIMIT 5;
+
+
+-- -----------------------------------------------------
+-- 4. [우측 하단] 최근 공지사항 (미니 리스트)
+-- -----------------------------------------------------
+SELECT 
+    ntc_title,
+    DATE_FORMAT(ntc_date, '%m.%d') AS ntc_date_fmt
+FROM notices
+ORDER BY ntc_date DESC
+LIMIT 3;

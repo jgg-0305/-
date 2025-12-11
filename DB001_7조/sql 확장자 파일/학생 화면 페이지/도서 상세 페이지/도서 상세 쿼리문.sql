@@ -1,0 +1,191 @@
+USE library_system;
+-- -----------------------------------------------------
+-- 1-1. 도서 상세 메타데이터 조회
+-- -----------------------------------------------------
+SELECT
+    T1.bk_title     AS 서명,
+    T1.bk_auth      AS 저자,
+    T1.bk_pub       AS 출판사,
+    T1.bk_year      AS 발행연도,
+    T1.bk_isbn      AS ISBN,
+    T1.bk_image     AS 표지이미지,
+    T1.bk_intro     AS 책소개,
+    T2.gnr_name     AS 장르
+FROM
+    books T1
+LEFT JOIN
+    genres T2 ON T1.gnr_id = T2.gnr_id
+WHERE
+    T1.bk_id = 1; -- [변수] 선택된 도서 청구기호(ID)
+
+
+-- -----------------------------------------------------
+-- 1-2. 복본별 소장 현황 및 대출 상태 조회
+-- -----------------------------------------------------
+SELECT
+    T1.cbk_id       AS 등록번호,      -- (예: EM001234)
+    T2.loc_name     AS 소장처,        -- (예: 제1열람실)
+    
+    -- [수정] 청구기호는 위치정보(loc_class)가 아니라 도서ID(bk_id)를 사용
+    CONCAT(T1.bk_id, ' c.', T1.cbk_vol) AS 청구기호, 
+    
+    T1.cbk_stat     AS 복본상태,      -- ENUM ('대출가능', '대출중', '분실', '파손')
+    DATE_FORMAT(T3.loan_due, '%Y-%m-%d') AS 반납예정일 -- 대출중일 경우 날짜 표시
+FROM
+    book_copies T1
+JOIN
+    locations T2 ON T1.loc_id = T2.loc_id
+LEFT JOIN
+    loans T3 ON T1.cbk_id = T3.cbk_id AND T3.loan_ret IS NULL -- 현재 대출중인 기록만 조인
+WHERE
+    T1.bk_id = 1    -- [변수] 선택된 도서 ID
+ORDER BY
+    T1.cbk_vol ASC; -- 복본 번호순 정렬
+
+
+-- -----------------------------------------------------
+-- 1-3. 리뷰 목록 조회 (최신순)
+-- -----------------------------------------------------
+SELECT
+    T1.rev_title    AS 제목,
+    T1.rev_rate     AS 평점,
+    T1.rev_content  AS 내용,
+    T2.usr_name     AS 작성자,
+    DATE_FORMAT(T1.rev_date, '%Y-%m-%d') AS 작성일
+FROM
+    book_reviews T1
+JOIN
+    users T2 ON T1.usr_id = T2.usr_id
+WHERE
+    T1.bk_id = 1    -- [변수] 선택된 도서 ID
+ORDER BY
+    T1.rev_date DESC;
+
+
+-- -----------------------------------------------------
+-- 1-4. '대출하기' 버튼 활성화 여부 확인
+-- -----------------------------------------------------
+-- 대출 가능한 복본이 1개 이상이면 버튼 활성화
+SELECT COUNT(*) AS avail_count
+FROM book_copies
+WHERE bk_id = 1 
+  AND cbk_stat = '대출가능'; -- [ENUM 체크] DDL 값 일치
+  
+INSERT INTO genres (gnr_id, gnr_name)
+VALUES (
+    1,                      -- ✅ 문제의 gnr_id와 일치시켜야 함
+    '컴퓨터/IT'             -- 장르 이름 (예시)
+) ON DUPLICATE KEY UPDATE gnr_name = VALUES(gnr_name);
+
+INSERT INTO locations (loc_id, loc_name, loc_flr)
+VALUES (
+    1, 
+    '일반열람실',
+    1
+) ON DUPLICATE KEY UPDATE loc_name = VALUES(loc_name);
+
+INSERT INTO users (usr_id, usr_name, usr_dept, usr_stat, usr_enrl)
+VALUES (
+    '20233849',
+    '조기강',
+    '컴퓨터공학과',
+    '정상',
+    TRUE
+) ON DUPLICATE KEY UPDATE usr_name = VALUES(usr_name);
+
+INSERT INTO books (bk_id, bk_title, bk_auth, bk_pub, bk_year, bk_isbn, gnr_id)
+VALUES (
+    1,                               -- bk_id: SELECT 쿼리에서 사용된 값
+    '[파이썬] 챗지피티와 함께 배우는 딥러닝 입문',
+    '김태영',
+    '위키북스',
+    '2024',
+    '9791196752521',                 -- HTML의 ISBN 값
+    1                               
+) ON DUPLICATE KEY UPDATE bk_title = VALUES(bk_title);
+
+INSERT INTO book_copies (cbk_id, bk_id, loc_id, cbk_vol, cbk_stat, cbk_reg)
+VALUES ( 
+    '9791196752521-1',
+    1,
+    1,
+    1,
+    '대출가능',
+    CURDATE()
+) ON DUPLICATE KEY UPDATE cbk_stat = VALUES(cbk_stat);
+
+-- =====================================================
+-- 2. 기능 동작 (INSERT / UPDATE)
+-- =====================================================
+
+-- -----------------------------------------------------
+-- 2-1. 도서 대출 처리 (트랜잭션 필수)
+-- -----------------------------------------------------
+START TRANSACTION;
+
+    -- [Step 1] 대출 기록 생성
+    INSERT INTO loans (
+        cbk_id, 
+        usr_id, 
+        loan_date, 
+        loan_due, 
+        loan_ret, 
+        loan_ext
+    ) VALUES (
+        '9791196752521-1',          -- [변수] 선택된 복본 ID (등록번호)
+        '20233849',          -- [변수] 로그인한 사용자 ID
+        CURDATE(),  -- 대출일: 오늘
+        DATE_ADD(CURDATE(), INTERVAL 7 DAY), -- 반납예정일: 7일 후
+        NULL,       -- 반납일: 아직 없음
+        FALSE       -- 연장여부: 초기값 False
+    );
+
+    -- [Step 2] 복본 상태 변경 ('대출가능' -> '대출중')
+    UPDATE book_copies 
+    SET cbk_stat = '대출중' -- [ENUM 체크] DDL 값 일치
+    WHERE cbk_id = '9791196752521-1';       -- [변수] 위와 동일한 복본 ID
+
+COMMIT;
+
+
+-- -----------------------------------------------------
+-- 2-2. 도서 예약 등록
+-- -----------------------------------------------------
+-- 해당 도서에 대한 나의 대기 순번을 자동 계산하여 삽입
+INSERT INTO reservations (
+    bk_id, 
+    usr_id, 
+    resv_date, 
+    resv_seq, 
+    resv_stat
+)
+SELECT 
+    1,              -- [변수] 도서 ID
+    20233849,              -- [변수] 사용자 ID
+    NOW(),          -- 예약 일시
+    IFNULL(MAX(resv_seq), 0) + 1, -- 현재 최대 순번 + 1
+    '대기중'         -- [ENUM 체크] 초기 상태
+FROM 
+    reservations 
+WHERE 
+    bk_id = 1;      -- [변수] 도서 ID (그룹핑용)
+
+
+-- -----------------------------------------------------
+-- 2-3. 리뷰 등록
+-- -----------------------------------------------------
+INSERT INTO book_reviews (
+    bk_id, 
+    usr_id, 
+    rev_title, 
+    rev_rate, 
+    rev_content, 
+    rev_date
+) VALUES (
+    1,      -- [변수] 도서 ID
+    '20233849',      -- [변수] 사용자 ID
+    '배송도 빠르고 책 상태도 좋습니다.',      -- [변수] 리뷰 제목
+    5,      -- [변수] 평점 (1~5)
+    '학교 도서관에 희망도서 신청해서 들어오자마자 빌려봤어요. 깨끗해서 좋네요. 내용은 그럭저럭 평이합니다.',      -- [변수] 내용
+    NOW()
+);

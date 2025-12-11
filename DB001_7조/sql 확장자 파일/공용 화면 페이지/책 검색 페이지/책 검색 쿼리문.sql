@@ -1,0 +1,42 @@
+--------------------------------------------------------------------------------------------
+-- 책 검색
+USE library_system;
+SELECT
+    b.bk_id,          -- 청구기호
+    b.bk_title,       -- 서명
+    b.bk_auth,        -- 저자
+    b.bk_pub,         -- 출판사
+    b.bk_year,        -- [필터 연동] 발행연도
+    b.bk_image,       -- 표지 이미지
+    g.gnr_name,       -- [필터 연동] 장르(주제)
+    
+    -- [필터 연동: 자료유형]
+    -- 실물(종이책) 존재 여부 (1이면 true)
+    MAX(CASE WHEN c.is_ebook = FALSE THEN 1 ELSE 0 END) AS has_paper,
+    -- 전자책 존재 여부 (1이면 true)
+    MAX(CASE WHEN c.is_ebook = TRUE THEN 1 ELSE 0 END) AS has_ebook,
+    
+    -- [필터 연동: 소장위치] 
+    -- 책이 소장된 '모든' 위치를 쉼표로 묶어서 반환 (예: "제1종합자료실, 제2종합자료실")
+    -- 서브쿼리 방식보다 빠르고, 특정 열람실 필터링 시에도 정보 누락이 없음
+    GROUP_CONCAT(DISTINCT l.loc_name ORDER BY l.loc_name SEPARATOR ', ') AS all_locations,
+    
+    -- (참고) 현재 대출 가능한 실물 책 권수
+    COUNT(CASE WHEN c.is_ebook = FALSE AND c.cbk_stat = '사용가능' THEN 1 END) AS avail_paper_cnt
+
+FROM
+    books b
+JOIN
+    genres g ON b.gnr_id = g.gnr_id
+LEFT JOIN
+    book_copies c ON b.bk_id = c.bk_id
+LEFT JOIN
+    locations l ON c.loc_id = l.loc_id -- 위치 명칭 조회를 위해 추가
+WHERE
+    -- [백엔드에서 처리할 검색 조건 영역]
+    b.bk_title LIKE CONCAT('%', '데이터 사이언스 입문', '%')
+GROUP BY
+    b.bk_id
+ORDER BY
+    b.bk_year DESC;
+

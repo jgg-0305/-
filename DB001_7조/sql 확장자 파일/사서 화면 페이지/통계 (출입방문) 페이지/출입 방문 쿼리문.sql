@@ -1,0 +1,51 @@
+USE library_system;
+-- 기간별 총 방문자 수 조회
+-- (최근 6개월 동안의 월별 총 방문자 수)
+SELECT
+    YEAR(log_time) AS log_year,
+    MONTH(log_time) AS log_month,
+    COUNT(log_id) AS total_visits
+FROM
+    entry_logs
+WHERE
+    log_type = '입실' -- 도서관 입실 기록만 필터링
+    AND log_time >= DATE_SUB(CURDATE(), INTERVAL 6 MONTH)
+GROUP BY
+    log_year, log_month
+ORDER BY
+    log_year ASC, log_month ASC;
+
+-- 시간대별 방문자 수 현황 조회
+SELECT
+    HOUR(log_time) AS log_hour,
+    COUNT(*) AS total_entries
+FROM
+    entry_logs
+WHERE
+    log_type = '입실' -- 도서관 입실 기록만 필터링
+    AND log_time >= DATE_SUB(CURDATE(), INTERVAL 1 MONTH) -- 예시: 최근 1주간 데이터
+GROUP BY
+    log_hour
+ORDER BY
+    log_hour ASC;
+
+-- 방문자 랭킹 조회
+SELECT
+    T2.usr_name AS 사용자_이름,
+    COUNT(T1.log_id) AS 방문_횟수,
+    T2.usr_dept
+FROM
+    entry_logs T1
+JOIN
+    users T2 ON T1.usr_id = T2.usr_id
+WHERE
+    T1.log_type = '입실' -- 도서관 입실 기록만 필터링
+    AND T1.log_time >= DATE_SUB(CURDATE(), INTERVAL 1 MONTH) -- 예시: 최근 1개월 데이터 기준
+GROUP BY
+    T1.usr_id, T2.usr_name
+ORDER BY
+    방문_횟수 DESC
+LIMIT 10; -- 예시: Top 10 방문자
+
+
+
